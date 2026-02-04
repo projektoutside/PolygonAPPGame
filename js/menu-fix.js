@@ -19,6 +19,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const menuInteractionLock = {
+        until: 0
+    };
+
+    const lockMenuInteractions = (ms = 800) => {
+        menuInteractionLock.until = Math.max(menuInteractionLock.until, Date.now() + ms);
+    };
+
+    const isMenuInteractionLocked = () => Date.now() < menuInteractionLock.until;
+
+    const shouldIgnoreMenuEvent = (event) => {
+        if (!isMenuInteractionLocked()) return false;
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        return true;
+    };
+
+    const swallowGhostClicks = (duration = 800) => {
+        lockMenuInteractions(duration);
+        const handler = (event) => {
+            if (!isMenuInteractionLocked()) return;
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        ['click', 'touchend', 'pointerup'].forEach((eventName) => {
+            document.addEventListener(eventName, handler, true);
+        });
+
+        setTimeout(() => {
+            ['click', 'touchend', 'pointerup'].forEach((eventName) => {
+                document.removeEventListener(eventName, handler, true);
+            });
+        }, duration);
+    };
+
     const showTutorial = () => {
         if (window.tutorial) {
             window.tutorial.show();
@@ -146,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const startFunModeFromSlot = (slot, slotData) => {
+        swallowGhostClicks(1000);
         closeFunPanel({ showMenu: false });
 
         runTransitionOverlay(() => {
@@ -272,7 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const newBtn = learnBtn.cloneNode(true);
         learnBtn.parentNode.replaceChild(newBtn, learnBtn);
 
-        newBtn.addEventListener('click', () => {
+        newBtn.addEventListener('click', (event) => {
+            if (shouldIgnoreMenuEvent(event)) return;
             console.log('Learn Mode (Sandbox) Clicked');
             stopMusic();
             hideElement('mainMenuOverlay');
@@ -296,7 +336,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const newFunBtn = funBtn.cloneNode(true);
         funBtn.parentNode.replaceChild(newFunBtn, funBtn);
 
-        newFunBtn.addEventListener('click', () => {
+        newFunBtn.addEventListener('click', (event) => {
+            if (shouldIgnoreMenuEvent(event)) return;
             console.log('Fun Mode Clicked');
             stopMusic();
             hideElement('learnPage');
@@ -308,7 +349,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (funCloseBtn && funOverlay) {
         const newCloseBtn = funCloseBtn.cloneNode(true);
         funCloseBtn.parentNode.replaceChild(newCloseBtn, funCloseBtn);
-        newCloseBtn.addEventListener('click', () => {
+        newCloseBtn.addEventListener('click', (event) => {
+            if (shouldIgnoreMenuEvent(event)) return;
             closeFunPanel();
         });
     }
@@ -317,14 +359,22 @@ document.addEventListener('DOMContentLoaded', () => {
         funOverlay.addEventListener('click', (event) => {
             if (event.target === funOverlay) {
                 closeFunPanel();
+            } else {
+                event.stopPropagation();
             }
         });
+        funOverlay.addEventListener('touchstart', (event) => {
+            if (event.target !== funOverlay) {
+                event.stopPropagation();
+            }
+        }, { passive: true });
     }
 
     if (funNewBtn) {
         const newBtn = funNewBtn.cloneNode(true);
         funNewBtn.parentNode.replaceChild(newBtn, funNewBtn);
-        newBtn.addEventListener('click', async () => {
+        newBtn.addEventListener('click', async (event) => {
+            if (shouldIgnoreMenuEvent(event)) return;
             const status = getFunSaveStatus();
             if (status.activeHasSave) {
                 let confirmNew = false;
@@ -348,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             storage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
             storage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
             storage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
+            swallowGhostClicks(1000);
             closeFunPanel({ showMenu: false });
 
             runTransitionOverlay(() => {
@@ -385,7 +436,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const newTopBtn = topLearnBtn.cloneNode(true);
         topLearnBtn.parentNode.replaceChild(newTopBtn, topLearnBtn);
 
-        newTopBtn.addEventListener('click', () => {
+        newTopBtn.addEventListener('click', (event) => {
+            if (shouldIgnoreMenuEvent(event)) return;
             const learnPage = document.getElementById('learnPage');
             if (learnPage) {
                 learnPage.style.display = 'flex';
