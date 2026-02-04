@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing Menu Fixes V4...');
+    window.MenuFixActive = true;
+    const storage = window.SafeStorage || localStorage;
 
     const hideElement = (id) => {
         const el = document.getElementById(id);
@@ -46,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const getActiveFunSlot = (maxSlots = 3) => {
-        const stored = parseInt(localStorage.getItem('polygonFunActiveSlot'), 10);
+        const stored = parseInt(storage.getItem('polygonFunActiveSlot'), 10);
         if (!Number.isFinite(stored) || stored < 1 || stored > maxSlots) {
             return 1;
         }
@@ -55,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const getFunSlotData = (slot) => {
         const key = `polygonFunSaveSlot${slot}`;
-        const raw = localStorage.getItem(key);
+        const raw = storage.getItem(key);
         if (!raw) return null;
         try {
             const parsed = JSON.parse(raw);
@@ -144,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const startFunModeFromSlot = (slot, slotData) => {
-        closeFunPanel();
+        closeFunPanel({ showMenu: false });
 
         runTransitionOverlay(() => {
             hideElement('mainMenuOverlay');
@@ -199,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateFunPanelMeta();
                     return;
                 }
-                localStorage.setItem('polygonFunActiveSlot', `${slot}`);
+                storage.setItem('polygonFunActiveSlot', `${slot}`);
                 startFunModeFromSlot(slot, slotData);
             };
 
@@ -212,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             card.addEventListener('click', () => {
-                localStorage.setItem('polygonFunActiveSlot', `${slot}`);
+                storage.setItem('polygonFunActiveSlot', `${slot}`);
                 renderFunSlots();
                 updateFunPanelMeta();
             });
@@ -220,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    localStorage.setItem('polygonFunActiveSlot', `${slot}`);
+                    storage.setItem('polygonFunActiveSlot', `${slot}`);
                     renderFunSlots();
                     updateFunPanelMeta();
                 }
@@ -239,11 +241,15 @@ document.addEventListener('DOMContentLoaded', () => {
         funOverlay.setAttribute('aria-hidden', 'false');
     };
 
-    const closeFunPanel = () => {
+    const closeFunPanel = ({ showMenu = true } = {}) => {
         if (!funOverlay) return;
         funOverlay.style.display = 'none';
         funOverlay.setAttribute('aria-hidden', 'true');
-        showMainMenuOverlay();
+        if (showMenu) {
+            showMainMenuOverlay();
+        } else {
+            hideMainMenuOverlay();
+        }
     };
 
     const ensureDefaultTriangle = () => {
@@ -339,10 +345,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
             }
-            localStorage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
-            localStorage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
-            localStorage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
-            closeFunPanel();
+            storage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
+            storage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
+            storage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
+            closeFunPanel({ showMenu: false });
 
             runTransitionOverlay(() => {
                 hideElement('mainMenuOverlay');

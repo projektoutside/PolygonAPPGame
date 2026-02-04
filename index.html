@@ -3825,6 +3825,8 @@
         </div>
     </div>
 
+    <script src="js/storage.js"></script>
+    <script src="js/audio-unlock.js"></script>
     <script src="js/geometry.js"></script>
     <script src="js/levels.js"></script>
     <script src="js/game.js"></script>
@@ -3949,6 +3951,8 @@
         window.appConfirm = (message, options) => AppDialog.confirm(message, options);
         window.appAlert = (message, options) => AppDialog.alert(message, options);
 
+        const storage = window.SafeStorage || localStorage;
+
         // Main Menu Logic
         const MainMenu = {
             overlay: document.getElementById('mainMenuOverlay'),
@@ -3956,6 +3960,7 @@
             btnLearn: document.getElementById('btnLearnMode'),
 
             init() {
+                if (window.MenuFixActive) return;
                 if (!this.overlay) return;
 
                 this.btnLearn.addEventListener('click', () => {
@@ -3990,7 +3995,7 @@
                         }
                     };
 
-                    const overlay = document.getElementById('transitionOverlay');
+                    const overlay = document.getElementById('funTransitionOverlay');
                     if (overlay) {
                         overlay.classList.add('active');
                         setTimeout(() => {
@@ -4236,7 +4241,7 @@
                 // Shape menu state
                 this.shapeMenuOpen = false;
                 this.currentMenuIndex = -1;
-                this.lastUsedShape = localStorage.getItem('lastUsedShape') || 'triangle';
+                this.lastUsedShape = storage.getItem('lastUsedShape') || 'triangle';
                 this.lastShapeCreationTime = 0; // Debounce for shape creation
 
                 // Telemetry callbacks
@@ -4316,9 +4321,9 @@
                 });
 
                 // Show tutorial on first load
-                if (!localStorage.getItem('tutorialShown')) {
+                if (!storage.getItem('tutorialShown')) {
                     document.getElementById('tutorialOverlay').style.display = 'flex';
-                    localStorage.setItem('tutorialShown', 'true');
+                    storage.setItem('tutorialShown', 'true');
                 }
             }
 
@@ -4564,7 +4569,7 @@
 
             syncResize(compensatePan = false) {
                 const rect = this.container.getBoundingClientRect();
-                const dpr = window.devicePixelRatio || 1;
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
                 // First run initialization or check if update is needed
                 if (!this.lastDimensions) {
@@ -4573,6 +4578,7 @@
                     // Initialize canvas size
                     this.canvas.width = rect.width * dpr;
                     this.canvas.height = rect.height * dpr;
+                    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                     this.ctx.scale(dpr, dpr);
                     this.canvas.style.width = rect.width + 'px';
                     this.canvas.style.height = rect.height + 'px';
@@ -4594,6 +4600,7 @@
                 this.canvas.height = rect.height * dpr;
 
                 // Scale context to match device pixel ratio
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                 this.ctx.scale(dpr, dpr);
 
                 // Set CSS size to maintain aspect ratio
@@ -4984,7 +4991,7 @@
                 }
 
                 // Store last used shape
-                localStorage.setItem('lastUsedShape', shapeType);
+                storage.setItem('lastUsedShape', shapeType);
             }
 
             createRegularPolygon(sides, radius, centerX, centerY) {
@@ -5246,7 +5253,7 @@
                     this.executeCombine();
                 } else {
                     // First click: Enter Selection Mode
-                    if (localStorage.getItem('hideCombineWarning') === 'true') {
+                    if (storage.getItem('hideCombineWarning') === 'true') {
                         this.enterCombineMode();
                     } else {
                         this.showCombineModal();
@@ -5264,7 +5271,7 @@
                 // One-time listener setup (or remove old ones to be safe, but simple is ok here)
                 continueBtn.onclick = () => {
                     if (checkbox.checked) {
-                        localStorage.setItem('hideCombineWarning', 'true');
+                        storage.setItem('hideCombineWarning', 'true');
                     }
                     modal.style.display = 'none';
                     this.enterCombineMode();
@@ -5629,7 +5636,7 @@
                     this.executeSplit();
                 } else {
                     // First click: Enter Split Mode
-                    if (localStorage.getItem('hideSplitWarning') === 'true') {
+                    if (storage.getItem('hideSplitWarning') === 'true') {
                         this.enterSplitMode();
                     } else {
                         this.showSplitModal();
@@ -5647,7 +5654,7 @@
                 // One-time listener setup
                 continueBtn.onclick = () => {
                     if (checkbox.checked) {
-                        localStorage.setItem('hideSplitWarning', 'true');
+                        storage.setItem('hideSplitWarning', 'true');
                     }
                     modal.style.display = 'none';
                     this.enterSplitMode();

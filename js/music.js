@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * Attempts to play music, handling browser autoplay policies.
      */
     const attemptPlay = () => {
+        if (typeof window.ensureAudioUnlocked === 'function') {
+            window.ensureAudioUnlocked();
+        }
         music.play().then(() => {
             console.log('Background music started');
         }).catch(error => {
@@ -37,6 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
         isFading = false;
         hasInteracted = true;
         music.volume = 1.0;
+        if (typeof window.ensureAudioUnlocked === 'function') {
+            window.ensureAudioUnlocked();
+        }
         if (music.paused) {
             music.play().catch(error => {
                 console.log('Play prevented by browser. Waiting for user interaction.');
