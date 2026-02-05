@@ -534,9 +534,12 @@ class Tutorial {
     show() {
         if (!this.overlay) {
             this.init();
+            // init() calls createOverlay() which calls showStep(0), so we're done
             return;
         }
-        document.body.appendChild(this.overlay); // Re-append to ensure top z-index
+        // Re-append to ensure top z-index and show first step
+        document.body.appendChild(this.overlay);
+        this.overlay.style.display = 'flex';
         this.showStep(0);
     }
 }

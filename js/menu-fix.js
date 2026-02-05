@@ -530,28 +530,52 @@
                     }
                 }
                 
+                // Clear save data and tutorial_seen flag for fresh start
                 localStorage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
                 localStorage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
                 localStorage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
+                localStorage.removeItem('tutorial_seen'); // Force tutorial to show for new game
+                
                 closeFunPanel();
 
                 runTransitionOverlay(() => {
+                    // Ensure all overlays are hidden
                     hideElement('mainMenuOverlay');
                     hideElement('learnPage');
                     hideElement('gameTutorialPage');
+                    
+                    // Double-ensure learnPage is hidden (belt and suspenders)
+                    const learnPageEl = document.getElementById('learnPage');
+                    if (learnPageEl) {
+                        learnPageEl.style.display = 'none';
+                        learnPageEl.classList.remove('active');
+                    }
 
                     if (window.game) {
+                        MobileDebug.add('Starting beginner mode...', 'info');
                         window.game.startMode('beginner');
+                        
                         if (window.game.currentMode) {
                             window.game.currentMode.setActiveSaveSlot(status.activeSlot);
                             window.game.currentMode.loadLevel(0);
                         }
 
-                        if (window.tutorial) {
-                            setTimeout(() => {
-                                window.tutorial.show();
-                            }, 100);
-                        }
+                        // Show tutorial after game initializes
+                        // Use longer delay to ensure game mode is fully set up
+                        setTimeout(() => {
+                            MobileDebug.add('Attempting to show tutorial...', 'info');
+                            if (window.tutorial) {
+                                try {
+                                    window.tutorial.show();
+                                    MobileDebug.add('Tutorial show() called successfully', 'info');
+                                } catch (err) {
+                                    MobileDebug.add(`Tutorial error: ${err.message}`, 'error');
+                                    console.error('Tutorial show error:', err);
+                                }
+                            } else {
+                                MobileDebug.add('Tutorial instance not found!', 'error');
+                            }
+                        }, 200);
                     } else {
                         MobileDebug.add('Game instance not found', 'error');
                     }
