@@ -8,8 +8,7 @@
     'use strict';
 
     // ========================================================================
-    // MOBILE DEBUG INSTRUMENTATION
-    // Toggle via: localStorage.setItem('POLYGON_DEBUG', 'true'); location.reload();
+    // DEBUG SYSTEM
     // ========================================================================
     const DEBUG_MODE = localStorage.getItem('POLYGON_DEBUG') === 'true';
     
@@ -101,20 +100,7 @@
                 event: '#00ffff',
                 success: '#44ff44'
             };
-            const icons = {
-                info: 'i',
-                warn: '!',
-                error: 'X',
-                event: '>',
-                success: '+'
-            };
-            const entry = { 
-                elapsed, 
-                msg, 
-                type, 
-                color: colors[type] || colors.info,
-                icon: icons[type] || icons.info
-            };
+            const entry = { elapsed, msg, type, color: colors[type] || colors.info };
             
             this.log.push(entry);
             if (this.log.length > this.maxLogs) this.log.shift();
@@ -130,16 +116,9 @@
             const logDiv = document.getElementById('mobileDebugLog');
             if (logDiv) {
                 logDiv.innerHTML = this.log.map(e => 
-                    `<div style="color:${e.color};margin:2px 0;word-break:break-word;">[${e.icon}] +${e.elapsed}s ${e.msg}</div>`
+                    `<div style="color:${e.color};margin:2px 0;word-break:break-word;">[+${e.elapsed}s] ${e.msg}</div>`
                 ).join('');
                 logDiv.scrollTop = logDiv.scrollHeight;
-            }
-        },
-
-        logGlobalState() {
-            this.add(`Globals: game=${!!window.game}, tutorial=${!!window.tutorial}, app=${!!window.app}`, 'info');
-            if (window.game) {
-                this.add(`Game: state=${window.game.state}, mode=${!!window.game.currentMode}`, 'info');
             }
         }
     };
@@ -156,7 +135,7 @@
     };
 
     const stopMusic = () => {
-        if (window.stopBackgroundMusic) {
+        if (typeof window.stopBackgroundMusic === 'function') {
             try {
                 window.stopBackgroundMusic();
             } catch (e) {
@@ -165,9 +144,6 @@
         }
     };
 
-    /**
-     * Transition overlay with Promise-based completion
-     */
     const runTransitionOverlay = () => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('funTransitionOverlay');
@@ -181,21 +157,14 @@
             overlay.classList.add('active');
             overlay.setAttribute('aria-hidden', 'false');
 
-            const startTime = Date.now();
-            const checkAndResolve = () => {
-                const elapsed = Date.now() - startTime;
-                if (elapsed >= 450) {
-                    overlay.classList.add('exit');
-                    setTimeout(() => {
-                        overlay.classList.remove('active', 'exit');
-                        overlay.setAttribute('aria-hidden', 'true');
-                    }, 850);
-                    resolve();
-                } else {
-                    requestAnimationFrame(checkAndResolve);
-                }
-            };
-            requestAnimationFrame(checkAndResolve);
+            setTimeout(() => {
+                overlay.classList.add('exit');
+                setTimeout(() => {
+                    overlay.classList.remove('active', 'exit');
+                    overlay.setAttribute('aria-hidden', 'true');
+                }, 850);
+                resolve();
+            }, 450);
         });
     };
 
@@ -204,20 +173,17 @@
     // ========================================================================
     const getActiveFunSlot = (maxSlots = 3) => {
         const stored = parseInt(localStorage.getItem('polygonFunActiveSlot'), 10);
-        if (!Number.isFinite(stored) || stored < 1 || stored > maxSlots) {
-            return 1;
-        }
-        return stored;
+        return (Number.isFinite(stored) && stored >= 1 && stored <= maxSlots) ? stored : 1;
     };
 
     const getFunSlotData = (slot) => {
-        const key = `polygonFunSaveSlot${slot}`;
-        const raw = localStorage.getItem(key);
-        if (!raw) return null;
         try {
+            const key = `polygonFunSaveSlot${slot}`;
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
             const parsed = JSON.parse(raw);
-            return parsed && typeof parsed === 'object' ? parsed : null;
-        } catch (error) {
+            return (parsed && typeof parsed === 'object') ? parsed : null;
+        } catch (e) {
             return null;
         }
     };
@@ -227,13 +193,13 @@
             return `Slot ${slot}: Empty`;
         }
         const levelIndex = Number.isFinite(slotData.levelIndex) ? slotData.levelIndex + 1 : null;
-        const levelText = levelIndex ? `Level ${levelIndex}` : 'Unknown level';
-        return `Slot ${slot}: ${levelText}`;
+        return `Slot ${slot}: ${levelIndex ? `Level ${levelIndex}` : 'Unknown level'}`;
     };
 
     const getFunSaveStatus = (slotCount = 3) => {
         const activeSlot = getActiveFunSlot(slotCount);
         let hasAnySave = false;
+        
         for (let slot = 1; slot <= slotCount; slot++) {
             const slotData = getFunSlotData(slot);
             if (slotData && slotData.appState) {
@@ -241,8 +207,10 @@
                 break;
             }
         }
+        
         const activeSlotData = getFunSlotData(activeSlot);
         const activeHasSave = !!(activeSlotData && activeSlotData.appState);
+        
         return { activeSlot, activeSlotData, activeHasSave, hasAnySave };
     };
 
@@ -251,10 +219,9 @@
             return { label: 'Empty', detail: 'No save data' };
         }
         const levelIndex = Number.isFinite(slotData.levelIndex) ? slotData.levelIndex + 1 : null;
-        const levelText = levelIndex ? `Level ${levelIndex}` : 'Unknown';
         return {
             label: isActive ? 'Active' : 'Saved',
-            detail: levelText
+            detail: levelIndex ? `Level ${levelIndex}` : 'Unknown'
         };
     };
 
@@ -266,13 +233,17 @@
     const hideMainMenuOverlay = () => {
         if (!mainMenuOverlay) return;
         mainMenuOverlay.classList.add('hidden');
-        mainMenuOverlay.style.display = 'flex';
+        // Set pointer-events to none so underlying elements can be clicked
+        mainMenuOverlay.style.pointerEvents = 'none';
+        MobileDebug.add('Main menu hidden', 'info');
     };
 
     const showMainMenuOverlay = () => {
         if (!mainMenuOverlay) return;
         mainMenuOverlay.classList.remove('hidden');
         mainMenuOverlay.style.display = 'flex';
+        mainMenuOverlay.style.pointerEvents = 'auto';
+        MobileDebug.add('Main menu shown', 'info');
     };
 
     const updateFunPanelMeta = () => {
@@ -281,6 +252,114 @@
         funMeta.textContent = status.hasAnySave
             ? getFunSlotSummary(status.activeSlot, status.activeSlotData)
             : 'No saved games. Start a new game!';
+    };
+
+    const openFunPanel = () => {
+        MobileDebug.add('Opening game panel', 'event');
+        
+        if (!funOverlay) {
+            funOverlay = document.getElementById('funGameStartOverlay');
+        }
+        
+        if (!funOverlay) {
+            MobileDebug.add('funGameStartOverlay not found!', 'error');
+            return;
+        }
+        
+        hideMainMenuOverlay();
+        updateFunPanelMeta();
+        renderFunSlots();
+        
+        // Ensure panel is fully visible and interactive
+        funOverlay.style.display = 'flex';
+        funOverlay.style.visibility = 'visible';
+        funOverlay.style.opacity = '1';
+        funOverlay.style.pointerEvents = 'auto';
+        funOverlay.setAttribute('aria-hidden', 'false');
+        
+        // Force a reflow to ensure styles are applied
+        funOverlay.offsetHeight;
+        
+        MobileDebug.add('Panel opened successfully', 'success');
+    };
+
+    const closeFunPanel = () => {
+        MobileDebug.add('Closing game panel', 'event');
+        if (!funOverlay) return;
+        funOverlay.style.display = 'none';
+        funOverlay.style.pointerEvents = 'none';
+        funOverlay.setAttribute('aria-hidden', 'true');
+        showMainMenuOverlay();
+    };
+
+    const renderFunSlots = () => {
+        if (!funSlots) return;
+        const maxSlots = 3;
+        const status = getFunSaveStatus(maxSlots);
+        funSlots.innerHTML = '';
+
+        MobileDebug.add(`Rendering ${maxSlots} save slots`, 'info');
+
+        for (let slot = 1; slot <= maxSlots; slot++) {
+            const slotData = getFunSlotData(slot);
+            const isActive = slot === status.activeSlot;
+            const slotStatus = formatSlotStatus(slot, slotData, isActive);
+
+            const card = document.createElement('div');
+            card.className = `fun-game-start-slot${isActive ? ' active' : ''}`;
+            card.setAttribute('role', 'button');
+            card.setAttribute('tabindex', '0');
+            card.dataset.slot = `${slot}`;
+            
+            // Ensure card is interactive
+            card.style.pointerEvents = 'auto';
+            
+            card.innerHTML = `
+                <div class="fun-game-start-slot-header">
+                    <span>Slot ${slot}</span>
+                    <span class="fun-game-start-slot-status">${slotStatus.label}</span>
+                </div>
+                <div class="fun-game-start-slot-detail">${slotStatus.detail}</div>
+                <button class="fun-game-start-slot-action" ${slotData && slotData.appState ? '' : 'disabled'}>
+                    Load
+                </button>
+            `;
+
+            const handleLoad = () => {
+                if (!slotData || !slotData.appState) {
+                    MobileDebug.add(`Slot ${slot} is empty, cannot load`, 'warn');
+                    return;
+                }
+                MobileDebug.add(`Loading slot ${slot}`, 'event');
+                localStorage.setItem('polygonFunActiveSlot', `${slot}`);
+                startFunModeFromSlot(slot, slotData);
+            };
+
+            const actionBtn = card.querySelector('.fun-game-start-slot-action');
+            if (actionBtn) {
+                // Ensure button is interactive
+                actionBtn.style.pointerEvents = 'auto';
+                addClickHandler(actionBtn, (e) => {
+                    e.stopPropagation();
+                    handleLoad();
+                });
+            }
+
+            // Handle card selection
+            addClickHandler(card, (e) => {
+                // Don't trigger card selection if clicking the action button
+                if (e.target.closest('.fun-game-start-slot-action')) return;
+                
+                MobileDebug.add(`Selecting slot ${slot}`, 'event');
+                localStorage.setItem('polygonFunActiveSlot', `${slot}`);
+                renderFunSlots();
+                updateFunPanelMeta();
+            });
+
+            funSlots.appendChild(card);
+        }
+        
+        MobileDebug.add('Slots rendered', 'success');
     };
 
     const startFunModeFromSlot = (slot, slotData) => {
@@ -305,131 +384,65 @@
         });
     };
 
-    const renderFunSlots = () => {
-        if (!funSlots) return;
-        const maxSlots = 3;
-        const status = getFunSaveStatus(maxSlots);
-        funSlots.innerHTML = '';
-
-        for (let slot = 1; slot <= maxSlots; slot++) {
-            const slotData = getFunSlotData(slot);
-            const isActive = slot === status.activeSlot;
-            const slotStatus = formatSlotStatus(slot, slotData, isActive);
-
-            const card = document.createElement('div');
-            card.className = `fun-game-start-slot${isActive ? ' active' : ''}`;
-            card.setAttribute('role', 'button');
-            card.setAttribute('tabindex', '0');
-            card.dataset.slot = `${slot}`;
-            card.innerHTML = `
-                <div class="fun-game-start-slot-header">
-                    <span>Slot ${slot}</span>
-                    <span class="fun-game-start-slot-status">${slotStatus.label}</span>
-                </div>
-                <div class="fun-game-start-slot-detail">${slotStatus.detail}</div>
-                <button class="fun-game-start-slot-action" ${slotData && slotData.appState ? '' : 'disabled'}>
-                    Load
-                </button>
-            `;
-
-            const handleLoad = () => {
-                if (!slotData || !slotData.appState) return;
-                localStorage.setItem('polygonFunActiveSlot', `${slot}`);
-                startFunModeFromSlot(slot, slotData);
-            };
-
-            const actionBtn = card.querySelector('.fun-game-start-slot-action');
-            if (actionBtn) {
-                addUniversalClickHandler(actionBtn, (e) => {
-                    e.stopPropagation();
-                    handleLoad();
-                });
-            }
-
-            addUniversalClickHandler(card, () => {
-                localStorage.setItem('polygonFunActiveSlot', `${slot}`);
-                renderFunSlots();
-                updateFunPanelMeta();
-            });
-
-            funSlots.appendChild(card);
-        }
-    };
-
-    const openFunPanel = () => {
-        MobileDebug.add('Opening game panel', 'event');
-        
-        if (!funOverlay) {
-            funOverlay = document.getElementById('funGameStartOverlay');
-        }
-        
-        if (!funOverlay) {
-            MobileDebug.add('funGameStartOverlay not found!', 'error');
-            return;
-        }
-        
-        hideMainMenuOverlay();
-        updateFunPanelMeta();
-        renderFunSlots();
-        
-        funOverlay.style.display = 'flex';
-        funOverlay.style.visibility = 'visible';
-        funOverlay.style.opacity = '1';
-        funOverlay.setAttribute('aria-hidden', 'false');
-        
-        MobileDebug.add('Panel opened', 'success');
-    };
-
-    const closeFunPanel = () => {
-        if (!funOverlay) return;
-        funOverlay.style.display = 'none';
-        funOverlay.setAttribute('aria-hidden', 'true');
-        showMainMenuOverlay();
-    };
-
     // ========================================================================
     // CROSS-PLATFORM EVENT HANDLING
     // ========================================================================
-    const addUniversalClickHandler = (element, handler) => {
+    const addClickHandler = (element, handler) => {
         if (!element) return;
         
         let lastEventTime = 0;
-        const DEBOUNCE_MS = 300;
+        const DEBOUNCE_MS = 250;
+        let isProcessing = false;
         
         const wrappedHandler = (event) => {
+            // Prevent double-firing
+            if (isProcessing) return;
+            
             const now = Date.now();
             if (now - lastEventTime < DEBOUNCE_MS) return;
             lastEventTime = now;
+            isProcessing = true;
+            
+            // Prevent default and stop propagation for touch events
+            if (event.type === 'touchend' || event.type === 'pointerup') {
+                event.preventDefault();
+            }
+            event.stopPropagation();
+            
+            MobileDebug.add(`Click: ${element.id || element.className || 'element'}`, 'event');
             
             try {
                 handler(event);
             } catch (e) {
                 MobileDebug.add(`Handler error: ${e.message}`, 'error');
+                console.error('Handler error:', e);
             }
+            
+            // Reset processing flag after a short delay
+            setTimeout(() => {
+                isProcessing = false;
+            }, 100);
         };
         
+        // Use pointer events for best cross-platform support
         if ('PointerEvent' in window) {
-            element.addEventListener('pointerup', (event) => {
-                if (event.button !== 0 && event.pointerType === 'mouse') return;
-                wrappedHandler(event);
-            }, { passive: true });
+            element.addEventListener('pointerup', wrappedHandler, { passive: false });
         } else {
-            element.addEventListener('touchend', (event) => {
-                if (event.changedTouches.length !== 1) return;
-                wrappedHandler(event);
-            }, { passive: true });
+            // Fallback for older browsers
+            element.addEventListener('touchend', wrappedHandler, { passive: false });
             element.addEventListener('click', wrappedHandler);
         }
     };
 
     // ========================================================================
-    // TUTORIAL INITIALIZATION
+    // TUTORIAL & NEW GAME
     // ========================================================================
     const showTutorialSafely = async () => {
         MobileDebug.add('Showing tutorial...', 'event');
         
+        // Wait for tutorial to be available
         let attempts = 0;
-        while (!window.tutorial && attempts < 50) {
+        while (!window.tutorial && attempts < 30) {
             await new Promise(r => setTimeout(r, 100));
             attempts++;
         }
@@ -456,7 +469,7 @@
                 tutOverlay.style.display = 'flex';
                 tutOverlay.style.visibility = 'visible';
                 tutOverlay.style.opacity = '1';
-                MobileDebug.add('Tutorial shown successfully', 'success');
+                MobileDebug.add('Tutorial shown', 'success');
                 return true;
             }
             return false;
@@ -469,80 +482,97 @@
     const startNewGame = async (status) => {
         MobileDebug.add('Starting new game...', 'event');
         
-        // Clear save data
-        localStorage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
-        localStorage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
-        localStorage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
-        localStorage.removeItem('tutorial_seen');
-        
-        closeFunPanel();
-        await runTransitionOverlay();
-        hideElement('mainMenuOverlay');
-        
-        if (!window.game) {
-            MobileDebug.add('Waiting for game...', 'warn');
-            await new Promise(r => setTimeout(r, 500));
+        try {
+            // Clear save data
+            localStorage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
+            localStorage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
+            localStorage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
+            localStorage.removeItem('tutorial_seen');
+            
+            closeFunPanel();
+            await runTransitionOverlay();
+            hideElement('mainMenuOverlay');
+            
+            // Wait for game to be available
             if (!window.game) {
-                MobileDebug.add('Game not available', 'error');
-                alert('Game is loading. Please try again.');
-                return;
+                MobileDebug.add('Waiting for game...', 'warn');
+                await new Promise(r => setTimeout(r, 500));
+                
+                if (!window.game) {
+                    MobileDebug.add('Game not available', 'error');
+                    alert('Game is still loading. Please try again.');
+                    showMainMenuOverlay();
+                    return;
+                }
             }
+            
+            MobileDebug.add('Starting beginner mode', 'info');
+            window.game.startMode('beginner');
+            
+            await new Promise(r => setTimeout(r, 100));
+            
+            if (window.game.currentMode) {
+                window.game.currentMode.setActiveSaveSlot(status.activeSlot);
+                window.game.currentMode.loadLevel(0);
+                MobileDebug.add('Level loaded', 'success');
+            }
+            
+            await new Promise(r => setTimeout(r, 300));
+            await showTutorialSafely();
+            
+        } catch (e) {
+            MobileDebug.add(`startNewGame error: ${e.message}`, 'error');
+            console.error('startNewGame error:', e);
+            showMainMenuOverlay();
         }
-        
-        MobileDebug.add('Starting beginner mode', 'info');
-        window.game.startMode('beginner');
-        
-        await new Promise(r => setTimeout(r, 100));
-        
-        if (window.game.currentMode) {
-            window.game.currentMode.setActiveSaveSlot(status.activeSlot);
-            window.game.currentMode.loadLevel(0);
-        }
-        
-        await new Promise(r => setTimeout(r, 300));
-        await showTutorialSafely();
     };
 
     // ========================================================================
     // INITIALIZATION
     // ========================================================================
     const initMenuFix = () => {
-        MobileDebug.add('Initializing...', 'info');
+        MobileDebug.add('Initializing menu system...', 'info');
         MobileDebug.add(`Touch: ${'ontouchstart' in window}, Pointer: ${'PointerEvent' in window}`, 'info');
+        MobileDebug.add(`User Agent: ${navigator.userAgent.substring(0, 50)}...`, 'info');
 
         funOverlay = document.getElementById('funGameStartOverlay');
         mainMenuOverlay = document.getElementById('mainMenuOverlay');
         funMeta = document.getElementById('funGameStartMeta');
         funSlots = document.getElementById('funGameStartSlots');
 
+        // Log element status
+        MobileDebug.add(`funOverlay: ${funOverlay ? 'found' : 'NOT FOUND'}`, funOverlay ? 'info' : 'error');
+        MobileDebug.add(`mainMenuOverlay: ${mainMenuOverlay ? 'found' : 'NOT FOUND'}`, mainMenuOverlay ? 'info' : 'error');
+
         // Play Game button (main menu)
         const funBtn = document.getElementById('btnFunMode');
         if (funBtn) {
-            const newFunBtn = funBtn.cloneNode(true);
-            funBtn.parentNode.replaceChild(newFunBtn, funBtn);
-
-            addUniversalClickHandler(newFunBtn, () => {
+            addClickHandler(funBtn, () => {
                 MobileDebug.add('Play Game pressed', 'event');
                 stopMusic();
                 openFunPanel();
             });
-            
             MobileDebug.add('btnFunMode attached', 'success');
+        } else {
+            MobileDebug.add('btnFunMode not found!', 'error');
         }
 
         // Close panel button
         const funCloseBtn = document.getElementById('funGameStartClose');
-        if (funCloseBtn && funOverlay) {
-            const newCloseBtn = funCloseBtn.cloneNode(true);
-            funCloseBtn.parentNode.replaceChild(newCloseBtn, funCloseBtn);
-            
-            addUniversalClickHandler(newCloseBtn, closeFunPanel);
+        if (funCloseBtn) {
+            addClickHandler(funCloseBtn, () => {
+                MobileDebug.add('Close button pressed', 'event');
+                closeFunPanel();
+            });
+            MobileDebug.add('funGameStartClose attached', 'success');
         }
 
         // Panel backdrop click
         if (funOverlay) {
-            addUniversalClickHandler(funOverlay, (event) => {
+            addClickHandler(funOverlay, (event) => {
+                // Only close if clicking the overlay background, not the panel
                 if (event.target === funOverlay) {
+                    MobileDebug.add('Backdrop clicked', 'event');
                     closeFunPanel();
                 }
             });
@@ -551,40 +581,60 @@
         // New Game button
         const funNewBtn = document.getElementById('funGameStartNew');
         if (funNewBtn) {
-            const newBtn = funNewBtn.cloneNode(true);
-            funNewBtn.parentNode.replaceChild(newBtn, funNewBtn);
-            
-            addUniversalClickHandler(newBtn, async () => {
+            addClickHandler(funNewBtn, async () => {
                 MobileDebug.add('New Game pressed', 'event');
                 
-                const status = getFunSaveStatus();
-                
-                if (status.activeHasSave) {
-                    let confirmNew = false;
-                    if (window.appConfirm) {
-                        try {
-                            confirmNew = await window.appConfirm(
-                                `Start new game in Slot ${status.activeSlot}? This will overwrite existing save.`,
-                                { title: 'New Game', confirmText: 'Start New', cancelText: 'Cancel' }
-                            );
-                        } catch (e) {
-                            confirmNew = confirm(`Start new game? This will overwrite existing save.`);
+                try {
+                    const status = getFunSaveStatus();
+                    
+                    // If there's an existing save, ask for confirmation
+                    if (status.activeHasSave) {
+                        MobileDebug.add('Has existing save, asking confirmation', 'info');
+                        
+                        let confirmNew = false;
+                        
+                        if (typeof window.appConfirm === 'function') {
+                            try {
+                                confirmNew = await window.appConfirm(
+                                    `Start new game in Slot ${status.activeSlot}? This will overwrite existing save.`,
+                                    { title: 'New Game', confirmText: 'Start New', cancelText: 'Cancel' }
+                                );
+                            } catch (e) {
+                                MobileDebug.add(`appConfirm error: ${e.message}`, 'warn');
+                                confirmNew = confirm('Start new game? This will overwrite existing save.');
+                            }
+                        } else {
+                            confirmNew = confirm('Start new game? This will overwrite existing save.');
                         }
-                    } else {
-                        confirmNew = confirm(`Start new game? This will overwrite existing save.`);
-                    }
 
-                    if (!confirmNew) return;
+                        if (!confirmNew) {
+                            MobileDebug.add('User cancelled new game', 'info');
+                            return;
+                        }
+                    }
+                    
+                    await startNewGame(status);
+                    
+                } catch (e) {
+                    MobileDebug.add(`New Game error: ${e.message}`, 'error');
+                    console.error('New Game error:', e);
                 }
-                
-                await startNewGame(status);
             });
+            MobileDebug.add('funGameStartNew attached', 'success');
+        } else {
+            MobileDebug.add('funGameStartNew not found!', 'error');
         }
 
         // Initial render
         if (funSlots) {
             renderFunSlots();
         }
+
+        // Ensure all interactive elements have proper pointer-events
+        const interactiveElements = document.querySelectorAll('.fun-game-start-panel button, .fun-game-start-slot, .fun-game-start-slot-action');
+        interactiveElements.forEach(el => {
+            el.style.pointerEvents = 'auto';
+        });
 
         MobileDebug.add('Initialization complete', 'success');
     };

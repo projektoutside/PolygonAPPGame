@@ -8,6 +8,7 @@ class ModalSystem {
     constructor() {
         this.overlay = null;
         this.activeResolve = null;
+        this.isClosing = false;
         this.init();
     }
 
@@ -25,9 +26,11 @@ class ModalSystem {
                 /* Mobile fixes */
                 -webkit-overflow-scrolling: touch;
                 touch-action: manipulation;
+                pointer-events: auto;
             }
             .custom-modal-overlay.active {
                 opacity: 1;
+                pointer-events: auto;
             }
             .custom-modal-card {
                 background: white; width: 90%; max-width: 420px;
@@ -37,6 +40,9 @@ class ModalSystem {
                 transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
                 display: flex; flex-direction: column; gap: 20px;
                 text-align: center; border: 1px solid rgba(255, 255, 255, 0.1);
+                pointer-events: auto;
+                position: relative;
+                z-index: 1;
             }
             .custom-modal-overlay.active .custom-modal-card {
                 transform: scale(1); opacity: 1;
@@ -60,10 +66,11 @@ class ModalSystem {
                 font-size: 15px; font-weight: 600; cursor: pointer;
                 border: none; transition: transform 0.1s, background 0.2s;
                 /* Mobile touch targets */
-                min-height: 44px;
+                min-height: 48px;
                 touch-action: manipulation;
                 -webkit-tap-highlight-color: transparent;
                 user-select: none;
+                pointer-events: auto;
             }
             .custom-modal-btn:hover { transform: translateY(-1px); }
             .custom-modal-btn:active { transform: translateY(0); }
@@ -104,7 +111,8 @@ class ModalSystem {
                     flex-direction: column;
                 }
                 .custom-modal-btn {
-                    min-height: 48px;
+                    min-height: 52px;
+                    font-size: 16px;
                 }
             }
         `;
@@ -128,10 +136,15 @@ class ModalSystem {
         // Prevent clicks on overlay background from propagating
         this.overlay.addEventListener('click', (e) => {
             if (e.target === this.overlay) {
-                // Optional: close on backdrop click (cancel)
-                // this.close(false);
+                // Close on backdrop click (cancel behavior)
+                this.close(false);
             }
         });
+        
+        // Prevent touch events from passing through
+        this.overlay.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
     }
     
     /**
@@ -140,21 +153,29 @@ class ModalSystem {
     _addMobileHandler(button, handler) {
         let lastTime = 0;
         const DEBOUNCE = 300;
+        let isProcessing = false;
         
         const wrappedHandler = (e) => {
+            if (isProcessing || this.isClosing) return;
+            
             e.preventDefault();
             e.stopPropagation();
             
             const now = Date.now();
             if (now - lastTime < DEBOUNCE) return;
             lastTime = now;
+            isProcessing = true;
             
             handler();
+            
+            setTimeout(() => {
+                isProcessing = false;
+            }, 100);
         };
         
         // Use pointer events if available (works on both touch and mouse)
         if ('PointerEvent' in window) {
-            button.addEventListener('pointerup', wrappedHandler);
+            button.addEventListener('pointerup', wrappedHandler, { passive: false });
         } else {
             // Fallback for older browsers
             button.addEventListener('touchend', wrappedHandler, { passive: false });
@@ -165,6 +186,7 @@ class ModalSystem {
     show(options) {
         return new Promise((resolve) => {
             this.activeResolve = resolve;
+            this.isClosing = false;
 
             const titleEl = document.getElementById('customModalTitle');
             const textEl = document.getElementById('customModalText');
@@ -204,6 +226,7 @@ class ModalSystem {
             // Force visibility
             this.overlay.style.visibility = 'visible';
             this.overlay.style.opacity = '0';
+            this.overlay.style.pointerEvents = 'auto';
             
             // Slight delay for animation
             requestAnimationFrame(() => {
@@ -215,11 +238,16 @@ class ModalSystem {
     }
 
     close(result) {
-        if (!this.overlay) return;
+        if (!this.overlay || this.isClosing) return;
+        this.isClosing = true;
+        
         this.overlay.classList.remove('active');
 
         setTimeout(() => {
             this.overlay.style.display = 'none';
+            this.overlay.style.pointerEvents = 'none';
+            this.isClosing = false;
+            
             if (this.activeResolve) {
                 this.activeResolve(result);
                 this.activeResolve = null;
