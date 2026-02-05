@@ -7,7 +7,6 @@
 (function() {
     'use strict';
     
-    // Wait for DOM
     const onReady = (callback) => {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', callback);
@@ -17,106 +16,168 @@
     };
     
     onReady(() => {
-        // Initialize Audio
         let music = null;
         let isFading = false;
-        let hasInteracted = false;
-        let musicInitialized = false;
+        let isPlaying = false;
+        let interactionListenersActive = false;
         
+        const log = (msg, type = 'log') => {
+            const prefix = '[Music]';
+            console[type](`${prefix} ${msg}`);
+        };
+        
+        /**
+         * Initialize the Audio element
+         */
         const initMusic = () => {
-            if (musicInitialized) return;
+            if (music) return true;
+            
             try {
                 music = new Audio('Music/MainMenu.mp3');
                 music.loop = true;
                 music.volume = 1.0;
-                musicInitialized = true;
-                console.log('[Music] Audio object created');
-            } catch (e) {
-                console.warn('[Music] Failed to create audio:', e);
-            }
-        };
-        
-        // Initialize immediately
-        initMusic();
-
-        /**
-         * Attempts to play music, handling browser autoplay policies.
-         */
-        const attemptPlay = () => {
-            if (!music) {
-                initMusic();
-                if (!music) return;
-            }
-            
-            music.play().then(() => {
-                console.log('[Music] Background music started');
-                hasInteracted = true;
-            }).catch(error => {
-                console.log('[Music] Autoplay prevented. Waiting for user interaction.');
-                // Set up one-time interaction listener
-                setupInteractionListener();
-            });
-        };
-        
-        const setupInteractionListener = () => {
-            const handler = () => {
-                if (!hasInteracted && music && music.paused) {
-                    music.play().catch(e => console.warn('[Music] Play failed:', e));
-                    hasInteracted = true;
-                }
-                cleanup();
-            };
-            
-            const cleanup = () => {
-                ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(evt => {
-                    document.removeEventListener(evt, handler);
+                music.preload = 'auto';
+                
+                // Handle successful play
+                music.addEventListener('playing', () => {
+                    isPlaying = true;
+                    removeInteractionListeners();
+                    log('Music is now playing');
                 });
-            };
+                
+                // Handle pause/stop
+                music.addEventListener('pause', () => {
+                    isPlaying = false;
+                });
+                
+                // Handle errors
+                music.addEventListener('error', (e) => {
+                    log(`Audio error: ${e.message || 'unknown'}`, 'warn');
+                });
+                
+                log('Audio object created');
+                return true;
+            } catch (e) {
+                log(`Failed to create audio: ${e.message}`, 'warn');
+                return false;
+            }
+        };
+        
+        /**
+         * Attempt to play music, using AudioUnlock if available
+         */
+        const attemptPlay = async () => {
+            if (!initMusic()) return false;
+            if (isPlaying) return true;
             
-            ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(evt => {
-                document.addEventListener(evt, handler, { once: true, passive: true });
+            try {
+                // Use AudioUnlock if available (critical for iOS)
+                if (window.AudioUnlock && !window.AudioUnlock.unlocked) {
+                    await window.AudioUnlock.unlock();
+                }
+                
+                await music.play();
+                log('Background music started');
+                return true;
+            } catch (error) {
+                log('Autoplay prevented. Waiting for user interaction.');
+                setupInteractionListeners();
+                return false;
+            }
+        };
+        
+        /**
+         * Handler for user interaction to unlock audio
+         */
+        const handleInteraction = async () => {
+            if (isPlaying) {
+                removeInteractionListeners();
+                return;
+            }
+            
+            try {
+                // Unlock AudioContext first
+                if (window.AudioUnlock) {
+                    await window.AudioUnlock.unlock();
+                }
+                
+                // Try to play
+                if (music && music.paused) {
+                    await music.play();
+                }
+            } catch (e) {
+                log(`Play on interaction failed: ${e.message}`, 'warn');
+                // Don't remove listeners - try again on next interaction
+            }
+        };
+        
+        /**
+         * Setup interaction listeners (persistent until music plays)
+         */
+        const setupInteractionListeners = () => {
+            if (interactionListenersActive) return;
+            interactionListenersActive = true;
+            
+            const events = ['pointerdown', 'touchstart', 'click', 'keydown'];
+            events.forEach(evt => {
+                document.addEventListener(evt, handleInteraction, { passive: true });
             });
+            
+            log('Interaction listeners active');
+        };
+        
+        /**
+         * Remove interaction listeners (called when music successfully plays)
+         */
+        const removeInteractionListeners = () => {
+            if (!interactionListenersActive) return;
+            
+            const events = ['pointerdown', 'touchstart', 'click', 'keydown'];
+            events.forEach(evt => {
+                document.removeEventListener(evt, handleInteraction);
+            });
+            
+            interactionListenersActive = false;
         };
 
         /**
-         * Starts (or resumes) the background music at full volume.
+         * Start or resume the background music at full volume
          */
-        const playBackgroundMusic = () => {
-            if (!music) {
-                initMusic();
-                if (!music) return;
-            }
+        const playBackgroundMusic = async () => {
+            if (!initMusic()) return;
             
             isFading = false;
-            hasInteracted = true;
             music.volume = 1.0;
             
             if (music.paused) {
-                music.play().catch(error => {
-                    console.log('[Music] Play prevented. Waiting for interaction.');
-                    setupInteractionListener();
-                });
+                await attemptPlay();
             }
         };
 
         /**
-         * Smoothly fades out the music volume and then pauses it.
+         * Smoothly fade out the music volume and then pause
          */
         const fadeOutAndStop = () => {
             if (!music) return;
             if (isFading) return;
-            isFading = true;
-
-            console.log('[Music] Fading out...');
             
-            const duration = 1500; // 1.5 seconds fade out
-            const interval = 50; // Update every 50ms
+            // If not playing, just ensure it's stopped
+            if (!isPlaying && music.paused) {
+                return;
+            }
+            
+            isFading = true;
+            log('Fading out...');
+            
+            const duration = 1500;
+            const interval = 50;
             const steps = duration / interval;
             const volStep = music.volume / steps;
 
             const fadeTimer = setInterval(() => {
                 if (!music) {
                     clearInterval(fadeTimer);
+                    isFading = false;
                     return;
                 }
                 
@@ -128,43 +189,44 @@
                     music.currentTime = 0;
                     clearInterval(fadeTimer);
                     isFading = false;
-                    console.log('[Music] Fade complete, music stopped');
+                    log('Fade complete, music stopped');
                 }
             }, interval);
         };
 
-        // Start trying to play immediately
+        // Initialize immediately
+        initMusic();
+        
+        // Try to autoplay (will likely fail on mobile, that's OK)
         attemptPlay();
 
         // Expose for external control
         window.stopBackgroundMusic = fadeOutAndStop;
         window.playBackgroundMusic = playBackgroundMusic;
 
-        // Attach listeners to the specific buttons
-        // Use mobile-friendly event handling
-        const addMobileHandler = (element, handler) => {
-            if (!element) return;
-            
-            let lastTime = 0;
-            const wrappedHandler = () => {
-                const now = Date.now();
-                if (now - lastTime < 300) return;
-                lastTime = now;
-                hasInteracted = true;
-                handler();
+        // Attach fade-out to Play Game button
+        const btnFun = document.getElementById('btnFunMode');
+        if (btnFun) {
+            const addMobileHandler = (element, handler) => {
+                let lastTime = 0;
+                const wrappedHandler = () => {
+                    const now = Date.now();
+                    if (now - lastTime < 300) return;
+                    lastTime = now;
+                    handler();
+                };
+                
+                if ('PointerEvent' in window) {
+                    element.addEventListener('pointerup', wrappedHandler, { passive: true });
+                } else {
+                    element.addEventListener('touchend', wrappedHandler, { passive: true });
+                    element.addEventListener('click', wrappedHandler);
+                }
             };
             
-            if ('PointerEvent' in window) {
-                element.addEventListener('pointerup', wrappedHandler, { passive: true });
-            } else {
-                element.addEventListener('touchend', wrappedHandler, { passive: true });
-                element.addEventListener('click', wrappedHandler);
-            }
-        };
+            addMobileHandler(btnFun, fadeOutAndStop);
+        }
         
-        const btnFun = document.getElementById('btnFunMode');
-        addMobileHandler(btnFun, fadeOutAndStop);
-        
-        console.log('[Music] Manager initialized');
+        log('Manager initialized');
     });
 })();
