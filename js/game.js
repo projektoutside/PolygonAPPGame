@@ -9,7 +9,7 @@ const GameState = {
 
 class Game {
     constructor(app) {
-        this.app = app; // Reference to PolygonPlayground instance
+        this.app = app; // Reference to PolygonFunApp instance
         this.state = GameState.MENU;
         this.currentMode = null;
         this.currentLevel = 0;
@@ -77,18 +77,10 @@ class Game {
             '.sidebar',               // Layers (left)
             '.sidebar-right',         // Visualizers (right)
             '.toolbar',               // Left Toolbar
-            '.top-tools-bar',         // Top Bar (Learn, Save, Open, Fullscreen)
+            '.top-tools-bar',         // Top Bar (Fullscreen toggle)
             '.mobile-menu-toggle',    // Mobile toggles if any
             '.coord-display'          // Coordinate display
         ];
-
-        // Ensure Learn Page is hidden when entering game mode
-        if (active) {
-            const learnPage = document.getElementById('learnPage');
-            if (learnPage) {
-                learnPage.classList.remove('active');
-            }
-        }
 
         selectorsToHide.forEach(selector => {
             const elements = document.querySelectorAll(selector);
@@ -490,7 +482,7 @@ class BeginnerMode {
 
         const restored = this.applyAppState(slotData.appState);
         if (!restored) {
-            this.setupPlayground();
+            this.setupLevel();
         }
 
         this.app.setTool('split');
@@ -1346,8 +1338,8 @@ class BeginnerMode {
         this.hideResultsOverlay();
         this.hideSkipButton(); // Reset UI
 
-        // Setup the playground for the level
-        this.setupPlayground();
+        // Setup the game canvas for the level
+        this.setupLevel();
 
         // Show Level Info & Update HUD
         this.updateHUD();
@@ -1362,7 +1354,7 @@ class BeginnerMode {
         this.autosaveProgress();
     }
 
-    setupPlayground() {
+    setupLevel() {
         // Clear existing polygons
         this.app.polygons = [];
         this.app.history = [];

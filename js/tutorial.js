@@ -1,12 +1,8 @@
 /**
- * Tutorial System V2 - Mobile-Robust Version
+ * Tutorial System
  * 
- * FIXES:
- * 1. Mobile-friendly touch handlers on buttons
- * 2. Guard condition improved to allow re-initialization
- * 3. Audio failure handling doesn't block flow
- * 4. Explicit z-index and visibility forcing
- * 5. Better cleanup on skip/next
+ * Interactive tutorial overlay that guides new players through
+ * the game mechanics with animated demonstrations.
  */
 
 class Tutorial {

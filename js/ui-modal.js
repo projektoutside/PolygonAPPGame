@@ -1,7 +1,7 @@
 /**
- * Modal System V2 - Mobile-Robust Version
+ * Modal System
  * 
- * Provides custom confirm/alert dialogs that work reliably on mobile
+ * Custom confirm/alert dialogs with mobile-friendly touch handling.
  */
 
 class ModalSystem {

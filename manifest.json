@@ -1,7 +1,7 @@
 {
-  "name": "Geometry Polygon Playground",
+  "name": "Polygon Fun",
   "short_name": "Polygon Fun",
-  "description": "Create, learn, and play with polygons in an interactive geometry playground.",
+  "description": "Slice polygons into target pieces in this fun geometry puzzle game.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

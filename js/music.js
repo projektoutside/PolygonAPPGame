@@ -1,6 +1,8 @@
 /**
- * Background Music Manager V2 - Mobile-Robust Version
- * Handles playback of Main Menu music with fade-out transitions.
+ * Background Music Manager
+ * 
+ * Handles playback of Main Menu music with smooth fade-out transitions
+ * and mobile-friendly autoplay policy handling.
  */
 (function() {
     'use strict';
@@ -161,10 +163,7 @@
         };
         
         const btnFun = document.getElementById('btnFunMode');
-        const btnLearn = document.getElementById('btnLearnMode');
-
         addMobileHandler(btnFun, fadeOutAndStop);
-        addMobileHandler(btnLearn, fadeOutAndStop);
         
         console.log('[Music] Manager initialized');
     });

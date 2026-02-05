@@ -10,12 +10,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#667eea">
     <meta name="description"
-        content="Create, learn, and play with polygons in an interactive geometry playground.">
+        content="Slice polygons into target pieces in this fun geometry puzzle game.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
-    <title>Geometry Polygon Playground</title>
+    <title>Polygon Fun</title>
     <!-- Sci-Fi "Syncopate" Font for the Shattered Prism Title -->
     <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -98,135 +98,6 @@
             -moz-osx-font-smoothing: grayscale;
             touch-action: manipulation;
             /* Prevent double-tap zoom on buttons */
-        }
-
-        /* Learn Geometry Full Page */
-        #learnPage {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            height: 100dvh;
-            background: #f8fafc;
-            z-index: 3000;
-            display: none;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        #learnPage.active {
-            display: flex;
-        }
-
-        .learn-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: clamp(16px, 2vw, 20px) clamp(24px, 4vw, 40px);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .learn-header h1 {
-            font-size: clamp(20px, 2.5vw, 24px);
-            font-weight: 600;
-            margin: 0;
-        }
-
-        .close-learn-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            padding: 8px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .close-learn-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .learn-content-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 24px;
-            padding: clamp(20px, 4vw, 40px);
-            max-width: 1200px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .learn-card {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e2e8f0;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .learn-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: linear-gradient(to bottom, #667eea, #764ba2);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .learn-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.15);
-            border-color: transparent;
-        }
-
-        .learn-card:hover::before {
-            opacity: 1;
-        }
-
-        .learn-card-title {
-            color: #2d3748;
-            font-weight: 700;
-            font-size: 18px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .learn-card-icon {
-            font-size: 24px;
-            background: #f0f4ff;
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #667eea;
-        }
-
-        .learn-card-desc {
-            color: #718096;
-            line-height: 1.6;
-            font-size: 15px;
         }
 
         /* Main Layout - Fully Responsive */
@@ -976,8 +847,8 @@
             background: rgba(0, 0, 0, 0.1);
         }
 
-        /* Learn Panel - Responsive */
-        .learn-item {
+        /* Visualizer Items - Responsive */
+        .viz-item {
             padding: var(--spacing-md);
             background: #f0f9ff;
             border-radius: var(--radius-md);
@@ -993,12 +864,12 @@
             align-items: center;
         }
 
-        .learn-item:hover {
+        .viz-item:hover {
             background: #e0f2fe;
             border-color: #0ea5e9;
         }
 
-        .learn-item.active {
+        .viz-item.active {
             background: #eef2ff;
             border-color: #818cf8;
         }
@@ -1017,33 +888,27 @@
             flex-shrink: 0;
         }
 
-        .learn-item:hover .visualizer-checkbox {
+        .viz-item:hover .visualizer-checkbox {
             border-color: #0ea5e9;
         }
 
-        .learn-item.active .visualizer-checkbox {
+        .viz-item.active .visualizer-checkbox {
             background: #4f46e5;
             border-color: #4f46e5;
         }
 
-        .learn-item.active .visualizer-checkbox::after {
+        .viz-item.active .visualizer-checkbox::after {
             content: '✓';
             color: white;
             font-size: 14px;
             font-weight: 800;
         }
 
-        .learn-item-title {
+        .viz-item-title {
             font-weight: 600;
             color: #0369a1;
             margin-bottom: var(--spacing-xs);
             font-size: clamp(13px, 1.75vw, 16px);
-        }
-
-        .learn-item-desc {
-            font-size: clamp(12px, 1.625vw, 15px);
-            color: #64748b;
-            line-height: 1.4;
         }
 
         /* Triangle Classifier - Responsive */
@@ -1424,28 +1289,6 @@
 
         .top-tool-item:hover {
             background: #f7fafc;
-        }
-
-        .learn-tab-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-        }
-
-        .learn-tab-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
-            opacity: 0.95;
         }
 
         .top-bar-btn {
@@ -2619,16 +2462,6 @@
             box-shadow: 0 0 20px rgba(237, 137, 54, 0.3);
         }
 
-        /* Learn Mode Specifics */
-        .menu-btn.learn-mode {
-            border-color: rgba(102, 126, 234, 0.3);
-        }
-
-        .menu-btn.learn-mode:hover {
-            border-color: #667eea;
-            box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
-        }
-
         /* Polygon Fun Game Controls */
         .game-controls {
             position: absolute;
@@ -3357,11 +3190,7 @@
         <div class="menu-options">
             <button class="menu-btn fun-mode" id="btnFunMode">
                 <span class="menu-btn-icon">🎮</span>
-                <span>Polygon Fun Game</span>
-            </button>
-            <button class="menu-btn learn-mode" id="btnLearnMode">
-                <span class="menu-btn-icon">🎓</span>
-                <span>Learn Polygon Playground</span>
+                <span>Play Game</span>
             </button>
         </div>
     </div>
@@ -3487,15 +3316,6 @@
 
                 <!-- Top Tools Bar (Tabs) -->
                 <div class="top-tools-bar">
-                    <button class="learn-tab-btn" id="openLearnPageBtn">
-                        🎓 Learn Polygons
-                    </button>
-                    <button class="top-bar-btn" data-tool="save" title="Save Project">
-                        💾 Save
-                    </button>
-                    <button class="top-bar-btn" data-tool="load" title="Open Project">
-                        📁 Open
-                    </button>
                     <button class="fullscreen-top-btn" id="fullscreenToggle" title="Toggle Fullscreen">⤢</button>
                 </div>
 
@@ -3531,37 +3351,37 @@
                         <span>👁️ Visualizers</span>
                     </div>
                     <div class="panel-content">
-                        <div class="learn-item" data-viz="angles">
+                        <div class="viz-item" data-viz="angles">
                             <div class="visualizer-checkbox"></div>
-                            <div class="learn-item-title">Show Angles</div>
+                            <div class="viz-item-title">Show Angles</div>
                         </div>
-                        <div class="learn-item" data-viz="medians">
+                        <div class="viz-item" data-viz="medians">
                             <div class="visualizer-checkbox"></div>
-                            <div class="learn-item-title">Show Medians & Centroid</div>
+                            <div class="viz-item-title">Show Medians &amp; Centroid</div>
                         </div>
-                        <div class="learn-item" data-viz="altitudes">
+                        <div class="viz-item" data-viz="altitudes">
                             <div class="visualizer-checkbox"></div>
-                            <div class="learn-item-title">Show Altitudes & Orthocenter</div>
+                            <div class="viz-item-title">Show Altitudes &amp; Orthocenter</div>
                         </div>
-                        <div class="learn-item" data-viz="bisectors">
+                        <div class="viz-item" data-viz="bisectors">
                             <div class="visualizer-checkbox"></div>
-                            <div class="learn-item-title">Show Perpendicular Bisectors</div>
+                            <div class="viz-item-title">Show Perpendicular Bisectors</div>
                         </div>
-                        <div class="learn-item" data-viz="diagonals">
+                        <div class="viz-item" data-viz="diagonals">
                             <div class="visualizer-checkbox"></div>
-                            <div class="learn-item-title">Show Diagonals</div>
+                            <div class="viz-item-title">Show Diagonals</div>
                         </div>
-                        <div class="learn-item" data-viz="vertices">
+                        <div class="viz-item" data-viz="vertices">
                             <div class="visualizer-checkbox"></div>
-                            <div class="learn-item-title">Show Vertices</div>
+                            <div class="viz-item-title">Show Vertices</div>
                         </div>
-                        <div class="learn-item" data-viz="perimeters">
+                        <div class="viz-item" data-viz="perimeters">
                             <div class="visualizer-checkbox"></div>
-                            <div class="learn-item-title">Show Perimeters</div>
+                            <div class="viz-item-title">Show Perimeters</div>
                         </div>
-                        <div class="learn-item" data-viz="baseHeight">
+                        <div class="viz-item" data-viz="baseHeight">
                             <div class="visualizer-checkbox"></div>
-                            <div class="learn-item-title">Show Base & Height</div>
+                            <div class="viz-item-title">Show Base &amp; Height</div>
                         </div>
                     </div>
                 </div>
@@ -3584,20 +3404,6 @@
                         properties</span>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Learn Geometry Full Page -->
-    <div id="learnPage">
-        <div class="learn-header">
-            <h1>🎓 Learn Polygon</h1>
-            <button class="close-learn-btn" id="closeLearnPageBtn">
-                <span>Back to App</span>
-                ✕
-            </button>
-        </div>
-        <div class="learn-content-grid" id="learnPageContent">
-            <!-- Content populated by JS -->
         </div>
     </div>
 
@@ -3953,36 +3759,13 @@
         const MainMenu = {
             overlay: document.getElementById('mainMenuOverlay'),
             btnFun: document.getElementById('btnFunMode'),
-            btnLearn: document.getElementById('btnLearnMode'),
 
             init() {
                 if (!this.overlay) return;
 
-                this.btnLearn.addEventListener('click', () => {
-                    this.hide();
-                    // Ensure normal app state
-                    // If there's any other initialization need, do it here
-                });
-
                 // FUN MODE BUTTON: Handled by menu-fix.js to open popup panel
                 // Do NOT add click handler here - menu-fix.js handles it with openFunPanel()
                 // This prevents mobile race condition where this handler would bypass the popup
-
-                const startGameBtn = document.getElementById('startGameBtn');
-                if (startGameBtn) {
-                    startGameBtn.addEventListener('click', () => {
-                        const tutorialPage = document.getElementById('gameTutorialPage');
-                        if (tutorialPage) {
-                            tutorialPage.style.display = 'none';
-                        }
-                        if (window.game) {
-                            window.game.startMode('beginner');
-                        } else {
-                            console.error('Game not initialized');
-                            alert('Game is loading... please wait.');
-                        }
-                    });
-                }
 
                 // Ensure menu is visible on load
                 this.show();
@@ -4140,8 +3923,8 @@
         // Global device detector instance
         let deviceDetector;
 
-        // Geometry Polygon Playground - Main Application
-        class PolygonPlayground {
+        // Polygon Fun - Main Application
+        class PolygonFunApp {
             constructor() {
                 this.canvas = document.getElementById('mainCanvas');
                 this.ctx = this.canvas.getContext('2d');
@@ -4255,7 +4038,6 @@
                 this.setupEventListeners();
                 this.setupToolbar();
                 this.setupColorPicker();
-                this.setupLearnPanel();
                 this.setupResizablePanels();
                 this.setupBottomPanel();
                 this.setupShapeMenu();
@@ -4279,11 +4061,7 @@
                     });
                 });
 
-                // Show tutorial on first load
-                if (!localStorage.getItem('tutorialShown')) {
-                    document.getElementById('tutorialOverlay').style.display = 'flex';
-                    localStorage.setItem('tutorialShown', 'true');
-                }
+                // Tutorial is now handled by js/tutorial.js via BeginnerMode.start()
             }
 
             setupResponsiveHandlers() {
@@ -4973,100 +4751,6 @@
                 }
 
                 return vertices;
-            }
-
-            setupLearnPanel() {
-                const concepts = [
-                    // Fundamentals
-                    { title: 'Polygon', desc: 'A closed shape with straight sides. From Greek "poly" (many) and "gonia" (angle).', icon: '⬡' },
-                    { title: 'Vertex', desc: 'A corner point where two sides meet.', icon: '•' },
-                    { title: 'Edge', desc: 'A line segment joining two vertices of a polygon.', icon: '╱' },
-                    { title: 'Perimeter', desc: 'The total distance around the outside of a shape.', icon: '📏' },
-                    { title: 'Area', desc: 'The amount of space inside a 2D shape.', icon: '⬛' },
-                    { title: 'Regular Polygon', desc: 'A polygon with all sides equal and all angles equal.', icon: '🛑' },
-                    { title: 'Irregular Polygon', desc: 'A polygon where sides and/or angles are not all equal.', icon: '🗺️' },
-
-                    // Angles & Geometry
-                    { title: 'Interior Angle', desc: 'An angle inside the polygon at one of its vertices.', icon: '∠' },
-                    { title: 'Exterior Angle', desc: 'The angle between a side of a polygon and an adjacent side extended outward.', icon: '↪️' },
-                    { title: 'Convex', desc: 'A polygon with no interior angle greater than 180°. All vertices point outwards.', icon: '⏺️' },
-                    { title: 'Concave', desc: 'A polygon with at least one interior angle greater than 180°. Has a "cave" or dent.', icon: '🌙' },
-                    { title: 'Diagonal', desc: 'A line segment connecting two non-adjacent vertices.', icon: '⚡' },
-                    { title: 'Apothem', desc: 'A line from the center of a regular polygon perpendicular to a side.', icon: '⊥' },
-                    { title: 'Radius', desc: 'A line from the center of a regular polygon to a vertex.', icon: '⨂' },
-
-                    // Triangles
-                    { title: 'Triangle', desc: 'A polygon with 3 sides and 3 angles. Sum of angles is 180°.', icon: '▲' },
-                    { title: 'Equilateral', desc: 'Triangle with all 3 sides equal and all angles 60°.', icon: '△' },
-                    { title: 'Isosceles', desc: 'Triangle with at least 2 sides equal.', icon: '📐' },
-                    { title: 'Scalene', desc: 'Triangle with no equal sides.', icon: '📐' },
-                    { title: 'Right Triangle', desc: 'Triangle with one 90° angle.', icon: '∟' },
-                    { title: 'Centroid', desc: 'The geometric center of a triangle, where medians meet.', icon: '🎯' },
-                    { title: 'Altitude', desc: 'Perpendicular line from a vertex to the opposite side (or its extension).', icon: '⊥' },
-                    { title: 'Median', desc: 'Line from a vertex to the midpoint of the opposite side.', icon: '⫖' },
-
-                    // Quadrilaterals
-                    { title: 'Quadrilateral', desc: 'A polygon with 4 sides and 4 angles. Sum of angles is 360°.', icon: '⬜' },
-                    { title: 'Square', desc: 'Regular quadrilateral with 4 equal sides and 4 right angles.', icon: '■' },
-                    { title: 'Rectangle', desc: 'Quadrilateral with 4 right angles. Opposite sides are equal.', icon: '▬' },
-                    { title: 'Rhombus', desc: 'Quadrilateral with 4 equal sides, but no right angles.', icon: '🔶' },
-                    { title: 'Parallelogram', desc: 'Quadrilateral with 2 pairs of parallel sides.', icon: '▱' },
-                    { title: 'Trapezoid', desc: 'Quadrilateral with at least 1 pair of parallel sides.', icon: '⏢' },
-                    { title: 'Kite', desc: 'Quadrilateral with 2 pairs of equal-length adjacent sides.', icon: '🪁' },
-
-                    // Other Polygons
-                    { title: 'Pentagon', desc: 'A polygon with 5 sides. Sum of angles is 540°.', icon: '⬟' },
-                    { title: 'Hexagon', desc: 'A polygon with 6 sides. Sum of angles is 720°.', icon: '⬢' },
-                    { title: 'Heptagon', desc: 'A polygon with 7 sides.', icon: '⬠' },
-                    { title: 'Octagon', desc: 'A polygon with 8 sides. Stop signs are regular octagons.', icon: '🛑' },
-                    { title: 'Nonagon', desc: 'A polygon with 9 sides.', icon: '○' },
-                    { title: 'Decagon', desc: 'A polygon with 10 sides.', icon: '🔟' },
-                    { title: 'Dodecagon', desc: 'A polygon with 12 sides.', icon: '🕛' },
-                    { title: 'n-gon', desc: 'A polygon with n sides.', icon: '♾️' }
-                ];
-
-                const panel = document.getElementById('learnPageContent');
-                concepts.forEach(concept => {
-                    const item = document.createElement('div');
-                    item.className = 'learn-card';
-                    item.innerHTML = `
-                            <div class="learn-card-title">
-                                ${concept.title}
-                                <div class="learn-card-icon">${concept.icon}</div>
-                            </div>
-                            <div class="learn-card-desc">${concept.desc}</div>
-                        `;
-                    // item.addEventListener('click', () => this.highlightConcept(concept.title)); // Optional: close and highlight
-                    panel.appendChild(item);
-                });
-
-                this.setupLearnPageToggles();
-            }
-
-            setupLearnPageToggles() {
-                const openBtn = document.getElementById('openLearnPageBtn');
-                const closeBtn = document.getElementById('closeLearnPageBtn');
-                const learnPage = document.getElementById('learnPage');
-
-                openBtn.addEventListener('click', () => {
-                    learnPage.classList.add('active');
-                    // Hide scroll on main body to prevent scrolling background
-                    document.body.style.overflow = 'hidden';
-                });
-
-                const closePage = () => {
-                    learnPage.classList.remove('active');
-                    document.body.style.overflow = '';
-                };
-
-                closeBtn.addEventListener('click', closePage);
-
-                // Optional: Close on Esc
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape' && learnPage.classList.contains('active')) {
-                        closePage();
-                    }
-                });
             }
 
             // Calculate the centroid (geometric center) of a polygon
@@ -8528,7 +8212,7 @@
 
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'geometry-playground.json';
+                a.download = 'polygon-fun.json';
                 a.click();
 
                 URL.revokeObjectURL(url);
@@ -8601,8 +8285,7 @@
             }
 
             highlightConcept(concept) {
-                // Visual feedback when learning concepts are clicked
-                // Could be expanded to show specific examples on canvas
+                // Visual feedback when visualizer concepts are clicked
                 console.log('Highlighting concept:', concept);
             }
         }
@@ -8869,7 +8552,7 @@
             // Setup panel back buttons
             setupPanelBackButtons();
 
-            app = new PolygonPlayground();
+            app = new PolygonFunApp();
 
             // Initialize Game System
             const game = new Game(app);
