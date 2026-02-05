@@ -281,9 +281,6 @@ class Tutorial {
         this.stopAudio();
         // Tutorial1.mp3 corresponds to index 0, Tutorial2.mp3 to index 1, etc.
         const audioPath = `Music/Tutorial${index + 1}.mp3`;
-        if (typeof window.ensureAudioUnlocked === 'function') {
-            window.ensureAudioUnlocked();
-        }
         this.currentAudio = new Audio(audioPath);
         this.currentAudio.play().catch(e => {
             console.warn('Audio playback failed:', e);

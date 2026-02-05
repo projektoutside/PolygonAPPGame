@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'polygon-fun-v1';
+const CACHE_VERSION = 'polygon-fun-v2-mobile-fix';
 const OFFLINE_ASSETS = [
   './',
   './index.html',

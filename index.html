@@ -3825,8 +3825,6 @@
         </div>
     </div>
 
-    <script src="js/storage.js"></script>
-    <script src="js/audio-unlock.js"></script>
     <script src="js/geometry.js"></script>
     <script src="js/levels.js"></script>
     <script src="js/game.js"></script>
@@ -3951,8 +3949,6 @@
         window.appConfirm = (message, options) => AppDialog.confirm(message, options);
         window.appAlert = (message, options) => AppDialog.alert(message, options);
 
-        const storage = window.SafeStorage || localStorage;
-
         // Main Menu Logic
         const MainMenu = {
             overlay: document.getElementById('mainMenuOverlay'),
@@ -3960,7 +3956,6 @@
             btnLearn: document.getElementById('btnLearnMode'),
 
             init() {
-                if (window.MenuFixActive) return;
                 if (!this.overlay) return;
 
                 this.btnLearn.addEventListener('click', () => {
@@ -3969,45 +3964,9 @@
                     // If there's any other initialization need, do it here
                 });
 
-                this.btnFun.addEventListener('click', () => {
-                    // Instantly hide Learn Page to prevent visual glitch during transition
-                    const learnPage = document.getElementById('learnPage');
-                    if (learnPage) learnPage.classList.remove('active');
-
-                    if (window.stopBackgroundMusic) {
-                        window.stopBackgroundMusic();
-                    }
-
-                    const tutorialDelay = 1000;
-                    const overlayHold = tutorialDelay + 150;
-
-                    const startFunMode = () => {
-                        this.hide();
-                        if (window.game) {
-                            window.game.startMode('beginner');
-                            if (window.tutorial && typeof window.tutorial.show === 'function') {
-                                setTimeout(() => {
-                                    window.tutorial.show();
-                                }, tutorialDelay);
-                            }
-                        } else {
-                            console.error('Game not initialized');
-                        }
-                    };
-
-                    const overlay = document.getElementById('funTransitionOverlay');
-                    if (overlay) {
-                        overlay.classList.add('active');
-                        setTimeout(() => {
-                            startFunMode();
-                            setTimeout(() => {
-                                overlay.classList.remove('active');
-                            }, overlayHold);
-                        }, 150);
-                    } else {
-                        startFunMode();
-                    }
-                });
+                // FUN MODE BUTTON: Handled by menu-fix.js to open popup panel
+                // Do NOT add click handler here - menu-fix.js handles it with openFunPanel()
+                // This prevents mobile race condition where this handler would bypass the popup
 
                 const startGameBtn = document.getElementById('startGameBtn');
                 if (startGameBtn) {
@@ -4241,7 +4200,7 @@
                 // Shape menu state
                 this.shapeMenuOpen = false;
                 this.currentMenuIndex = -1;
-                this.lastUsedShape = storage.getItem('lastUsedShape') || 'triangle';
+                this.lastUsedShape = localStorage.getItem('lastUsedShape') || 'triangle';
                 this.lastShapeCreationTime = 0; // Debounce for shape creation
 
                 // Telemetry callbacks
@@ -4321,9 +4280,9 @@
                 });
 
                 // Show tutorial on first load
-                if (!storage.getItem('tutorialShown')) {
+                if (!localStorage.getItem('tutorialShown')) {
                     document.getElementById('tutorialOverlay').style.display = 'flex';
-                    storage.setItem('tutorialShown', 'true');
+                    localStorage.setItem('tutorialShown', 'true');
                 }
             }
 
@@ -4569,7 +4528,7 @@
 
             syncResize(compensatePan = false) {
                 const rect = this.container.getBoundingClientRect();
-                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                const dpr = window.devicePixelRatio || 1;
 
                 // First run initialization or check if update is needed
                 if (!this.lastDimensions) {
@@ -4578,7 +4537,6 @@
                     // Initialize canvas size
                     this.canvas.width = rect.width * dpr;
                     this.canvas.height = rect.height * dpr;
-                    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                     this.ctx.scale(dpr, dpr);
                     this.canvas.style.width = rect.width + 'px';
                     this.canvas.style.height = rect.height + 'px';
@@ -4600,7 +4558,6 @@
                 this.canvas.height = rect.height * dpr;
 
                 // Scale context to match device pixel ratio
-                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                 this.ctx.scale(dpr, dpr);
 
                 // Set CSS size to maintain aspect ratio
@@ -4991,7 +4948,7 @@
                 }
 
                 // Store last used shape
-                storage.setItem('lastUsedShape', shapeType);
+                localStorage.setItem('lastUsedShape', shapeType);
             }
 
             createRegularPolygon(sides, radius, centerX, centerY) {
@@ -5253,7 +5210,7 @@
                     this.executeCombine();
                 } else {
                     // First click: Enter Selection Mode
-                    if (storage.getItem('hideCombineWarning') === 'true') {
+                    if (localStorage.getItem('hideCombineWarning') === 'true') {
                         this.enterCombineMode();
                     } else {
                         this.showCombineModal();
@@ -5271,7 +5228,7 @@
                 // One-time listener setup (or remove old ones to be safe, but simple is ok here)
                 continueBtn.onclick = () => {
                     if (checkbox.checked) {
-                        storage.setItem('hideCombineWarning', 'true');
+                        localStorage.setItem('hideCombineWarning', 'true');
                     }
                     modal.style.display = 'none';
                     this.enterCombineMode();
@@ -5636,7 +5593,7 @@
                     this.executeSplit();
                 } else {
                     // First click: Enter Split Mode
-                    if (storage.getItem('hideSplitWarning') === 'true') {
+                    if (localStorage.getItem('hideSplitWarning') === 'true') {
                         this.enterSplitMode();
                     } else {
                         this.showSplitModal();
@@ -5654,7 +5611,7 @@
                 // One-time listener setup
                 continueBtn.onclick = () => {
                     if (checkbox.checked) {
-                        storage.setItem('hideSplitWarning', 'true');
+                        localStorage.setItem('hideSplitWarning', 'true');
                     }
                     modal.style.display = 'none';
                     this.enterSplitMode();

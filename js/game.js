@@ -16,7 +16,6 @@ class Game {
         this.score = 0;
         this.levels = []; // Loaded from levels.js
         this.devManager = new DevManager(this); // Initialize DevManager
-        this.storage = window.SafeStorage || localStorage;
     }
 
     init() {
@@ -141,7 +140,6 @@ class BeginnerMode {
     constructor(game) {
         this.game = game;
         this.app = game.app;
-        this.storage = game.storage || window.SafeStorage || localStorage;
         this.currentLevelIndex = 0;
         this.movesRemaining = 0;
         this.targetPieces = 0;
@@ -174,9 +172,9 @@ class BeginnerMode {
         }
 
         // Auto-show tutorial for new users
-        if (window.tutorial && !this.storage.getItem('tutorial_seen')) {
+        if (window.tutorial && !localStorage.getItem('tutorial_seen')) {
             setTimeout(() => window.tutorial.show(), 150);
-            this.storage.setItem('tutorial_seen', 'true');
+            localStorage.setItem('tutorial_seen', 'true');
         }
     }
 
@@ -193,7 +191,7 @@ class BeginnerMode {
     }
 
     getActiveSaveSlot() {
-        const stored = parseInt(this.storage.getItem('polygonFunActiveSlot'), 10);
+        const stored = parseInt(localStorage.getItem('polygonFunActiveSlot'), 10);
         if (!Number.isFinite(stored) || stored < 1 || stored > this.saveSlotCount) {
             return 1;
         }
@@ -203,7 +201,7 @@ class BeginnerMode {
     setActiveSaveSlot(slot) {
         const normalized = Math.min(this.saveSlotCount, Math.max(1, slot));
         this.activeSaveSlot = normalized;
-        this.storage.setItem('polygonFunActiveSlot', `${normalized}`);
+        localStorage.setItem('polygonFunActiveSlot', `${normalized}`);
         this.starRatings = this.getSlotStars(normalized);
         this.refreshBoxScoreUI();
     }
@@ -295,7 +293,7 @@ class BeginnerMode {
 
     getSlotData(slot) {
         const key = this.getSlotKey(slot);
-        const raw = this.storage.getItem(key);
+        const raw = localStorage.getItem(key);
         if (!raw) return null;
         try {
             const parsed = JSON.parse(raw);
@@ -308,7 +306,7 @@ class BeginnerMode {
 
     getStoredStars(slot) {
         const key = this.getStarKey(slot);
-        const raw = this.storage.getItem(key);
+        const raw = localStorage.getItem(key);
         if (!raw) return null;
         try {
             const parsed = JSON.parse(raw);
@@ -338,12 +336,12 @@ class BeginnerMode {
 
     saveSlotData(slot, data) {
         const key = this.getSlotKey(slot);
-        this.storage.setItem(key, JSON.stringify(data));
+        localStorage.setItem(key, JSON.stringify(data));
     }
 
     saveStars(slot, stars) {
         const key = this.getStarKey(slot);
-        this.storage.setItem(key, JSON.stringify(this.normalizeStars(stars)));
+        localStorage.setItem(key, JSON.stringify(this.normalizeStars(stars)));
     }
 
     captureAppState() {
@@ -586,8 +584,8 @@ class BeginnerMode {
 
     clearSlot(slot) {
         const normalizedSlot = Math.min(this.saveSlotCount, Math.max(1, slot));
-        this.storage.removeItem(this.getSlotKey(normalizedSlot));
-        this.storage.removeItem(this.getStarKey(normalizedSlot));
+        localStorage.removeItem(this.getSlotKey(normalizedSlot));
+        localStorage.removeItem(this.getStarKey(normalizedSlot));
         if (normalizedSlot === this.activeSaveSlot) {
             this.starRatings = this.getSlotStars(normalizedSlot);
         }
@@ -628,18 +626,18 @@ class BeginnerMode {
         const key = this.getSolutionKey(slot);
         let allSolutions = {};
         try {
-            const raw = this.storage.getItem(key);
+            const raw = localStorage.getItem(key);
             if (raw) allSolutions = JSON.parse(raw);
         } catch (e) { console.warn('Error reading solutions', e); }
 
         allSolutions[levelIndex] = data;
-        this.storage.setItem(key, JSON.stringify(allSolutions));
+        localStorage.setItem(key, JSON.stringify(allSolutions));
     }
 
     getLevelSolution(slot, levelIndex) {
         const key = this.getSolutionKey(slot);
         try {
-            const raw = this.storage.getItem(key);
+            const raw = localStorage.getItem(key);
             if (!raw) return null;
             const all = JSON.parse(raw);
             return all[levelIndex] || null;
@@ -1801,9 +1799,6 @@ class BeginnerMode {
 
     playResultSound(isVictory) {
         const soundFile = isVictory ? 'Music/victory.mp3' : 'Music/failed.mp3';
-        if (typeof window.ensureAudioUnlocked === 'function') {
-            window.ensureAudioUnlocked();
-        }
         const audio = new Audio(soundFile);
         audio.volume = 0.6;
         audio.play().catch(e => console.warn('Audio playback failed:', e));
@@ -1995,10 +1990,9 @@ class BeginnerMode {
 
         const ctx = canvas.getContext('2d');
         const rect = canvas.getBoundingClientRect();
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const dpr = window.devicePixelRatio || 1;
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
 
         ctx.clearRect(0, 0, rect.width, rect.height);
