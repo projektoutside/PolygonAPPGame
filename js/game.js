@@ -163,7 +163,7 @@ class BeginnerMode {
     }
 
     start() {
-        console.log('Starting Beginner Mode');
+        console.log('[BeginnerMode] Starting Beginner Mode');
         this.bindGameControls();
         this.setupBoxScoreUI();
         const resumed = this.tryAutoResume();
@@ -171,9 +171,25 @@ class BeginnerMode {
             this.loadLevel(0);
         }
 
-        // Auto-show tutorial for new users
-        if (window.tutorial && !localStorage.getItem('tutorial_seen')) {
-            setTimeout(() => window.tutorial.show(), 150);
+        // NOTE: Tutorial is now shown by menu-fix.js for New Game flow
+        // This code path handles auto-resume and direct calls to startMode('beginner')
+        // Only show tutorial if:
+        // 1. We're NOT resuming a saved game
+        // 2. tutorial_seen flag is not set
+        // 3. window.tutorial exists
+        if (!resumed && window.tutorial && !localStorage.getItem('tutorial_seen')) {
+            console.log('[BeginnerMode] Showing tutorial for new user (from game.js fallback)');
+            // Use a longer delay to ensure DOM is ready on mobile
+            setTimeout(() => {
+                try {
+                    if (window.tutorial && typeof window.tutorial.show === 'function') {
+                        window.tutorial.show();
+                        console.log('[BeginnerMode] Tutorial.show() called successfully');
+                    }
+                } catch (e) {
+                    console.error('[BeginnerMode] Tutorial show failed:', e);
+                }
+            }, 250);
             localStorage.setItem('tutorial_seen', 'true');
         }
     }

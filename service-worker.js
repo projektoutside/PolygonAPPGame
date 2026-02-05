@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'polygon-fun-v3-tutorial-fix';
+const CACHE_VERSION = 'polygon-fun-v6-mobile-tutorial-fix';
 const OFFLINE_ASSETS = [
   './',
   './index.html',
@@ -36,7 +36,9 @@ const OFFLINE_ASSETS = [
   './js/menu-fix.js',
   './js/music.js',
   './js/tutorial.js',
-  './js/ui-modal.js'
+  './js/ui-modal.js',
+  './js/audio-unlock.js',
+  './js/storage.js'
 ];
 
 self.addEventListener('install', (event) => {

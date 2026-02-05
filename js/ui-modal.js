@@ -1,3 +1,9 @@
+/**
+ * Modal System V2 - Mobile-Robust Version
+ * 
+ * Provides custom confirm/alert dialogs that work reliably on mobile
+ */
+
 class ModalSystem {
     constructor() {
         this.overlay = null;
@@ -13,9 +19,12 @@ class ModalSystem {
         style.textContent = `
             .custom-modal-overlay {
                 position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
-                backdrop-filter: blur(8px); z-index: 10000;
+                backdrop-filter: blur(8px); z-index: 100000;
                 display: none; align-items: center; justify-content: center;
                 opacity: 0; transition: opacity 0.3s ease;
+                /* Mobile fixes */
+                -webkit-overflow-scrolling: touch;
+                touch-action: manipulation;
             }
             .custom-modal-overlay.active {
                 opacity: 1;
@@ -50,6 +59,11 @@ class ModalSystem {
                 font-family: 'Inter', system-ui, sans-serif;
                 font-size: 15px; font-weight: 600; cursor: pointer;
                 border: none; transition: transform 0.1s, background 0.2s;
+                /* Mobile touch targets */
+                min-height: 44px;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+                user-select: none;
             }
             .custom-modal-btn:hover { transform: translateY(-1px); }
             .custom-modal-btn:active { transform: translateY(0); }
@@ -57,18 +71,41 @@ class ModalSystem {
             .custom-modal-cancel {
                 background: #f1f5f9; color: #64748b;
             }
-            .custom-modal-cancel:hover { background: #e2e8f0; color: #475569; }
+            .custom-modal-cancel:hover, .custom-modal-cancel:active { 
+                background: #e2e8f0; color: #475569; 
+            }
             
             .custom-modal-confirm {
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
             }
-            .custom-modal-confirm:hover { 
+            .custom-modal-confirm:hover, .custom-modal-confirm:active { 
                 box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4); 
                 opacity: 0.95;
             }
             .custom-modal-alert {
                 background: #3b82f6; color: white;
+            }
+            
+            /* Mobile adjustments */
+            @media (max-width: 768px) {
+                .custom-modal-card {
+                    width: 95%;
+                    padding: 20px;
+                    gap: 16px;
+                }
+                .custom-modal-title {
+                    font-size: 20px;
+                }
+                .custom-modal-text {
+                    font-size: 15px;
+                }
+                .custom-modal-actions {
+                    flex-direction: column;
+                }
+                .custom-modal-btn {
+                    min-height: 48px;
+                }
             }
         `;
         document.head.appendChild(style);
@@ -87,6 +124,42 @@ class ModalSystem {
             </div>
         `;
         document.body.appendChild(this.overlay);
+        
+        // Prevent clicks on overlay background from propagating
+        this.overlay.addEventListener('click', (e) => {
+            if (e.target === this.overlay) {
+                // Optional: close on backdrop click (cancel)
+                // this.close(false);
+            }
+        });
+    }
+    
+    /**
+     * Add mobile-friendly click handler to a button
+     */
+    _addMobileHandler(button, handler) {
+        let lastTime = 0;
+        const DEBOUNCE = 300;
+        
+        const wrappedHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const now = Date.now();
+            if (now - lastTime < DEBOUNCE) return;
+            lastTime = now;
+            
+            handler();
+        };
+        
+        // Use pointer events if available (works on both touch and mouse)
+        if ('PointerEvent' in window) {
+            button.addEventListener('pointerup', wrappedHandler);
+        } else {
+            // Fallback for older browsers
+            button.addEventListener('touchend', wrappedHandler, { passive: false });
+            button.addEventListener('click', wrappedHandler);
+        }
     }
 
     show(options) {
@@ -108,41 +181,47 @@ class ModalSystem {
                     const cancelBtn = document.createElement('button');
                     cancelBtn.className = 'custom-modal-btn custom-modal-cancel';
                     cancelBtn.textContent = options.cancelText || 'Cancel';
-                    cancelBtn.onclick = () => this.close(false);
+                    this._addMobileHandler(cancelBtn, () => this.close(false));
                     actionsEl.appendChild(cancelBtn);
 
                     // Confirm Button
                     const confirmBtn = document.createElement('button');
                     confirmBtn.className = 'custom-modal-btn custom-modal-confirm';
                     confirmBtn.textContent = options.confirmText || 'Confirm';
-                    confirmBtn.onclick = () => this.close(true);
+                    this._addMobileHandler(confirmBtn, () => this.close(true));
                     actionsEl.appendChild(confirmBtn);
                 } else {
                     // Alert (OK only)
                     const okBtn = document.createElement('button');
                     okBtn.className = 'custom-modal-btn custom-modal-confirm';
                     okBtn.textContent = options.confirmText || 'OK';
-                    okBtn.onclick = () => this.close(true);
+                    this._addMobileHandler(okBtn, () => this.close(true));
                     actionsEl.appendChild(okBtn);
                 }
             }
 
             this.overlay.style.display = 'flex';
-            // Slight delay active class for animation
+            // Force visibility
+            this.overlay.style.visibility = 'visible';
+            this.overlay.style.opacity = '0';
+            
+            // Slight delay for animation
             requestAnimationFrame(() => {
-                this.overlay.classList.add('active');
+                requestAnimationFrame(() => {
+                    this.overlay.classList.add('active');
+                });
             });
         });
     }
 
-    close(animateResult) {
+    close(result) {
         if (!this.overlay) return;
         this.overlay.classList.remove('active');
 
         setTimeout(() => {
             this.overlay.style.display = 'none';
             if (this.activeResolve) {
-                this.activeResolve(animateResult);
+                this.activeResolve(result);
                 this.activeResolve = null;
             }
         }, 300);

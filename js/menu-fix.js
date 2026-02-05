@@ -1,10 +1,13 @@
 /**
- * Menu Fix V5 - Mobile-first event handling for Polygon Fun Game
+ * Menu Fix V6 - Robust Mobile Tutorial Fix
  * 
- * FIXES:
- * 1. DOMContentLoaded race condition - uses IIFE with readyState check
- * 2. Touch/click event reliability - uses pointer events with fallback
- * 3. Mobile debug overlay for diagnosing issues
+ * FIXES APPLIED:
+ * 1. Race condition in tutorial loading - uses Promises and proper sequencing
+ * 2. Touch/click event reliability - improved universal handler
+ * 3. Tutorial initialization guard - ensures clean state
+ * 4. Mobile debug overlay - toggleable for diagnostics
+ * 5. Proper async/await flow for game initialization
+ * 6. Service worker cache busting via versioning
  */
 
 (function() {
@@ -12,18 +15,18 @@
 
     // ========================================================================
     // MOBILE DEBUG INSTRUMENTATION
+    // Toggle via: localStorage.setItem('POLYGON_DEBUG', 'true'); location.reload();
     // ========================================================================
-    const DEBUG_MODE = false; // Set to true to enable debug overlay on mobile
+    const DEBUG_MODE = localStorage.getItem('POLYGON_DEBUG') === 'true';
     
     const MobileDebug = {
         overlay: null,
         log: [],
-        maxLogs: 15,
+        maxLogs: 20,
+        startTime: Date.now(),
 
         init() {
-            if (!DEBUG_MODE) return;
-            
-            // Create debug overlay
+            // Create debug overlay (always, but hidden by default)
             const overlay = document.createElement('div');
             overlay.id = 'mobileDebugOverlay';
             overlay.style.cssText = `
@@ -31,41 +34,114 @@
                 bottom: 10px;
                 left: 10px;
                 right: 10px;
-                max-height: 200px;
-                background: rgba(0, 0, 0, 0.85);
+                max-height: 250px;
+                background: rgba(0, 0, 0, 0.92);
                 color: #00ff00;
-                font-family: monospace;
+                font-family: 'Consolas', 'Monaco', monospace;
                 font-size: 11px;
-                padding: 8px;
-                border-radius: 8px;
-                z-index: 99999;
+                padding: 10px;
+                border-radius: 10px;
+                z-index: 999999;
                 overflow-y: auto;
-                pointer-events: none;
-                border: 1px solid #00ff00;
+                pointer-events: auto;
+                border: 2px solid #00ff00;
+                display: ${DEBUG_MODE ? 'block' : 'none'};
+                -webkit-overflow-scrolling: touch;
             `;
-            overlay.innerHTML = '<div id="mobileDebugLog"></div>';
+            overlay.innerHTML = `
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid #00ff00;padding-bottom:6px;">
+                    <span style="font-weight:bold;">🔧 POLYGON DEBUG CONSOLE</span>
+                    <button id="debugClearBtn" style="background:#333;color:#0f0;border:1px solid #0f0;padding:2px 8px;cursor:pointer;font-size:10px;">Clear</button>
+                </div>
+                <div id="mobileDebugLog"></div>
+            `;
             document.body.appendChild(overlay);
             this.overlay = overlay;
+            
+            // Clear button
+            const clearBtn = document.getElementById('debugClearBtn');
+            if (clearBtn) {
+                clearBtn.onclick = () => {
+                    this.log = [];
+                    this.render();
+                };
+            }
+            
+            // Add keyboard shortcut to toggle (Ctrl+Shift+D)
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                    this.toggle();
+                }
+            });
+            
+            // Triple-tap to toggle on mobile
+            let tapCount = 0;
+            let lastTap = 0;
+            document.addEventListener('touchend', () => {
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    tapCount++;
+                    if (tapCount >= 3) {
+                        this.toggle();
+                        tapCount = 0;
+                    }
+                } else {
+                    tapCount = 1;
+                }
+                lastTap = now;
+            }, { passive: true });
+        },
+        
+        toggle() {
+            if (this.overlay) {
+                const isVisible = this.overlay.style.display !== 'none';
+                this.overlay.style.display = isVisible ? 'none' : 'block';
+                localStorage.setItem('POLYGON_DEBUG', isVisible ? 'false' : 'true');
+            }
         },
 
         add(msg, type = 'info') {
-            const timestamp = new Date().toISOString().substr(11, 12);
-            const colors = { info: '#00ff00', warn: '#ffff00', error: '#ff4444', event: '#00ffff' };
-            const entry = { timestamp, msg, type, color: colors[type] || colors.info };
+            const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(2);
+            const colors = { 
+                info: '#00ff00', 
+                warn: '#ffff00', 
+                error: '#ff4444', 
+                event: '#00ffff',
+                success: '#44ff44'
+            };
+            const icons = {
+                info: 'ℹ️',
+                warn: '⚠️',
+                error: '❌',
+                event: '👆',
+                success: '✅'
+            };
+            const entry = { 
+                elapsed, 
+                msg, 
+                type, 
+                color: colors[type] || colors.info,
+                icon: icons[type] || icons.info
+            };
             
             this.log.push(entry);
             if (this.log.length > this.maxLogs) this.log.shift();
             
-            console.log(`[MenuFix ${type.toUpperCase()}] ${msg}`);
+            // Always log to console
+            const consoleMethod = type === 'error' ? 'error' : type === 'warn' ? 'warn' : 'log';
+            console[consoleMethod](`[MenuFix +${elapsed}s] ${msg}`);
             
-            if (DEBUG_MODE && this.overlay) {
-                const logDiv = document.getElementById('mobileDebugLog');
-                if (logDiv) {
-                    logDiv.innerHTML = this.log.map(e => 
-                        `<div style="color:${e.color}">[${e.timestamp}] ${e.msg}</div>`
-                    ).join('');
-                    logDiv.scrollTop = logDiv.scrollHeight;
-                }
+            this.render();
+        },
+        
+        render() {
+            if (!this.overlay) return;
+            const logDiv = document.getElementById('mobileDebugLog');
+            if (logDiv) {
+                logDiv.innerHTML = this.log.map(e => 
+                    `<div style="color:${e.color};margin:2px 0;word-break:break-word;">${e.icon} [+${e.elapsed}s] ${e.msg}</div>`
+                ).join('');
+                logDiv.scrollTop = logDiv.scrollHeight;
             }
         },
 
@@ -77,10 +153,14 @@
             }
             const styles = window.getComputedStyle(panel);
             const rect = panel.getBoundingClientRect();
-            this.add(`Panel #${panelId}:`, 'info');
-            this.add(`  display=${styles.display}, visibility=${styles.visibility}`, 'info');
-            this.add(`  opacity=${styles.opacity}, z-index=${styles.zIndex}`, 'info');
-            this.add(`  rect: x=${rect.x.toFixed(0)}, y=${rect.y.toFixed(0)}, w=${rect.width.toFixed(0)}, h=${rect.height.toFixed(0)}`, 'info');
+            this.add(`Panel #${panelId}: display=${styles.display}, visible=${styles.visibility}, z=${styles.zIndex}`, 'info');
+        },
+        
+        logGlobalState() {
+            this.add(`Globals: window.game=${!!window.game}, window.tutorial=${!!window.tutorial}, window.app=${!!window.app}`, 'info');
+            if (window.game) {
+                this.add(`Game state: ${window.game.state}, currentMode=${!!window.game.currentMode}`, 'info');
+            }
         }
     };
 
@@ -92,37 +172,59 @@
         if (el) {
             el.style.display = 'none';
             el.classList.remove('active');
+            MobileDebug.add(`Hidden: #${id}`, 'info');
         }
     };
 
     const stopMusic = () => {
         if (window.stopBackgroundMusic) {
-            window.stopBackgroundMusic();
-        } else {
-            MobileDebug.add('stopBackgroundMusic not found', 'warn');
+            try {
+                window.stopBackgroundMusic();
+                MobileDebug.add('Music stopped', 'info');
+            } catch (e) {
+                MobileDebug.add(`Music stop error: ${e.message}`, 'warn');
+            }
         }
     };
 
-    const runTransitionOverlay = (callback) => {
-        const overlay = document.getElementById('funTransitionOverlay');
-        if (!overlay) {
-            if (callback) callback();
-            return;
-        }
+    /**
+     * Transition overlay with Promise-based completion
+     * Returns a Promise that resolves when the overlay animation is done
+     */
+    const runTransitionOverlay = () => {
+        return new Promise((resolve) => {
+            const overlay = document.getElementById('funTransitionOverlay');
+            if (!overlay) {
+                MobileDebug.add('No transition overlay, resolving immediately', 'warn');
+                resolve();
+                return;
+            }
 
-        overlay.classList.remove('exit');
-        overlay.classList.add('active');
-        overlay.setAttribute('aria-hidden', 'false');
+            MobileDebug.add('Starting transition overlay', 'event');
+            overlay.classList.remove('exit');
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-hidden', 'false');
 
-        setTimeout(() => {
-            if (callback) callback();
-            overlay.classList.add('exit');
-
-            setTimeout(() => {
-                overlay.classList.remove('active', 'exit');
-                overlay.setAttribute('aria-hidden', 'true');
-            }, 850);
-        }, 500);
+            // Use requestAnimationFrame for more reliable timing on mobile
+            const startTime = Date.now();
+            const checkAndResolve = () => {
+                const elapsed = Date.now() - startTime;
+                if (elapsed >= 450) {
+                    MobileDebug.add('Transition overlay complete, resolving', 'success');
+                    overlay.classList.add('exit');
+                    
+                    setTimeout(() => {
+                        overlay.classList.remove('active', 'exit');
+                        overlay.setAttribute('aria-hidden', 'true');
+                    }, 850);
+                    
+                    resolve();
+                } else {
+                    requestAnimationFrame(checkAndResolve);
+                }
+            };
+            requestAnimationFrame(checkAndResolve);
+        });
     };
 
     // ========================================================================
@@ -227,7 +329,7 @@
     const startFunModeFromSlot = (slot, slotData) => {
         closeFunPanel();
 
-        runTransitionOverlay(() => {
+        runTransitionOverlay().then(() => {
             hideElement('mainMenuOverlay');
             hideElement('learnPage');
             hideElement('gameTutorialPage');
@@ -313,14 +415,12 @@
 
     /**
      * SINGLE SOURCE OF TRUTH: Opens the Fun Game Start Panel
-     * This is the ONLY function that should show the popup.
      */
     const openFunPanel = () => {
         MobileDebug.add('openFunPanel() called', 'event');
         
         if (!funOverlay) {
             funOverlay = document.getElementById('funGameStartOverlay');
-            MobileDebug.add(`funOverlay found: ${!!funOverlay}`, 'info');
         }
         
         if (!funOverlay) {
@@ -332,14 +432,12 @@
         updateFunPanelMeta();
         renderFunSlots();
         
-        // Force display with multiple properties for maximum compatibility
         funOverlay.style.display = 'flex';
         funOverlay.style.visibility = 'visible';
         funOverlay.style.opacity = '1';
         funOverlay.setAttribute('aria-hidden', 'false');
         
-        MobileDebug.add('Panel opened successfully', 'info');
-        MobileDebug.logPanelState('funGameStartOverlay');
+        MobileDebug.add('Fun panel opened', 'success');
     };
 
     const closeFunPanel = () => {
@@ -356,56 +454,213 @@
     // ========================================================================
     
     /**
-     * Adds a universal click handler that works on both mobile and desktop.
-     * Uses a combination of click and touchend for maximum compatibility.
-     * Prevents ghost clicks and double-firing.
+     * Universal click handler that works reliably on all platforms
+     * Uses pointer events as primary, with touch/click fallback
      */
     const addUniversalClickHandler = (element, handler, options = {}) => {
         if (!element) return;
         
-        let lastTouchTime = 0;
-        const TOUCH_THRESHOLD = 300; // ms to prevent ghost clicks
+        let lastEventTime = 0;
+        const DEBOUNCE_MS = 300;
         
-        // Touch handler - fires first on mobile
-        element.addEventListener('touchend', (event) => {
-            // Only handle single touch
-            if (event.changedTouches.length !== 1) return;
-            
-            // Check if touch is within element bounds (prevents swipe-off triggers)
-            const touch = event.changedTouches[0];
-            const rect = element.getBoundingClientRect();
-            if (touch.clientX < rect.left || touch.clientX > rect.right ||
-                touch.clientY < rect.top || touch.clientY > rect.bottom) {
+        const wrappedHandler = (event) => {
+            const now = Date.now();
+            if (now - lastEventTime < DEBOUNCE_MS) {
+                MobileDebug.add(`Event debounced on ${element.id || element.className}`, 'info');
                 return;
             }
+            lastEventTime = now;
             
-            lastTouchTime = Date.now();
-            MobileDebug.add(`Touch event on ${element.id || element.className}`, 'event');
+            MobileDebug.add(`Handler fired: ${event.type} on ${element.id || element.className}`, 'event');
             
-            // Prevent default to stop click event from also firing
-            event.preventDefault();
-            handler(event);
-        }, { passive: false });
+            try {
+                handler(event);
+            } catch (e) {
+                MobileDebug.add(`Handler error: ${e.message}`, 'error');
+                console.error('Handler error:', e);
+            }
+        };
         
-        // Click handler - fires on desktop, also fallback for some mobile cases
-        element.addEventListener('click', (event) => {
-            // Skip if this was already handled by touch
-            if (Date.now() - lastTouchTime < TOUCH_THRESHOLD) {
-                MobileDebug.add('Click suppressed (recent touch)', 'info');
+        // Use pointerup as primary (works on both touch and mouse)
+        if ('PointerEvent' in window) {
+            element.addEventListener('pointerup', (event) => {
+                // Only handle primary button/touch
+                if (event.button !== 0 && event.pointerType === 'mouse') return;
+                wrappedHandler(event);
+            }, { passive: true });
+        } else {
+            // Fallback for older browsers
+            element.addEventListener('touchend', (event) => {
+                if (event.changedTouches.length !== 1) return;
+                
+                const touch = event.changedTouches[0];
+                const rect = element.getBoundingClientRect();
+                if (touch.clientX < rect.left || touch.clientX > rect.right ||
+                    touch.clientY < rect.top || touch.clientY > rect.bottom) {
+                    return;
+                }
+                
+                wrappedHandler(event);
+            }, { passive: true });
+            
+            element.addEventListener('click', wrappedHandler);
+        }
+    };
+
+    // ========================================================================
+    // ROBUST TUTORIAL INITIALIZATION
+    // ========================================================================
+    
+    /**
+     * Ensures the tutorial is properly shown with comprehensive error handling
+     * This is the CRITICAL fix for mobile tutorial issues
+     */
+    const showTutorialSafely = async () => {
+        MobileDebug.add('showTutorialSafely() starting...', 'event');
+        MobileDebug.logGlobalState();
+        
+        // Step 1: Wait for tutorial to be defined
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max wait
+        
+        while (!window.tutorial && attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 100));
+            attempts++;
+        }
+        
+        if (!window.tutorial) {
+            MobileDebug.add('Tutorial object never became available!', 'error');
+            return false;
+        }
+        
+        MobileDebug.add(`Tutorial found after ${attempts * 100}ms`, 'success');
+        
+        // Step 2: Clean up any existing tutorial overlay (prevents guard condition failure)
+        const existingOverlay = document.getElementById('tutorialOverlay');
+        if (existingOverlay) {
+            MobileDebug.add('Removing existing tutorial overlay for clean init', 'warn');
+            existingOverlay.remove();
+            window.tutorial.overlay = null;
+            window.tutorial.initialized = false;
+        }
+        
+        // Step 3: Ensure game is in the right state
+        if (!window.game || window.game.state !== 'playing') {
+            MobileDebug.add('Game not in playing state, waiting...', 'warn');
+            await new Promise(r => setTimeout(r, 200));
+        }
+        
+        // Step 4: Actually show the tutorial
+        try {
+            MobileDebug.add('Calling tutorial.show()...', 'event');
+            window.tutorial.show();
+            
+            // Step 5: Verify it worked
+            await new Promise(r => setTimeout(r, 100));
+            const tutOverlay = document.getElementById('tutorialOverlay');
+            if (tutOverlay) {
+                const styles = window.getComputedStyle(tutOverlay);
+                MobileDebug.add(`Tutorial overlay: display=${styles.display}, z=${styles.zIndex}`, 'success');
+                
+                // Force visibility on mobile
+                tutOverlay.style.display = 'flex';
+                tutOverlay.style.visibility = 'visible';
+                tutOverlay.style.opacity = '1';
+                
+                return true;
+            } else {
+                MobileDebug.add('Tutorial overlay not found after show()!', 'error');
+                return false;
+            }
+        } catch (e) {
+            MobileDebug.add(`Tutorial.show() error: ${e.message}`, 'error');
+            console.error('Tutorial show error:', e);
+            return false;
+        }
+    };
+    
+    /**
+     * Starts a new game with proper sequencing for mobile
+     */
+    const startNewGame = async (status) => {
+        MobileDebug.add('startNewGame() called', 'event');
+        
+        // Clear save data and tutorial_seen flag
+        localStorage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
+        localStorage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
+        localStorage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
+        localStorage.removeItem('tutorial_seen');
+        
+        MobileDebug.add('Cleared save data, closing panel', 'info');
+        closeFunPanel();
+        
+        // Wait for transition overlay
+        MobileDebug.add('Waiting for transition overlay...', 'info');
+        await runTransitionOverlay();
+        
+        // Hide all overlays
+        MobileDebug.add('Hiding overlays...', 'info');
+        hideElement('mainMenuOverlay');
+        hideElement('learnPage');
+        hideElement('gameTutorialPage');
+        
+        // Double-ensure learnPage is hidden
+        const learnPageEl = document.getElementById('learnPage');
+        if (learnPageEl) {
+            learnPageEl.style.display = 'none';
+            learnPageEl.classList.remove('active');
+        }
+        
+        // Check for game instance
+        if (!window.game) {
+            MobileDebug.add('CRITICAL: window.game is undefined!', 'error');
+            
+            // Wait and retry
+            await new Promise(r => setTimeout(r, 500));
+            if (!window.game) {
+                MobileDebug.add('Game still not available after wait', 'error');
+                alert('Game is still loading. Please try again in a moment.');
                 return;
             }
-            
-            MobileDebug.add(`Click event on ${element.id || element.className}`, 'event');
-            handler(event);
-        });
+        }
+        
+        // Start beginner mode
+        MobileDebug.add('Starting beginner mode...', 'info');
+        window.game.startMode('beginner');
+        
+        // Wait for mode to initialize
+        await new Promise(r => setTimeout(r, 100));
+        
+        if (window.game.currentMode) {
+            MobileDebug.add('Game mode initialized, setting up slot and level', 'success');
+            window.game.currentMode.setActiveSaveSlot(status.activeSlot);
+            window.game.currentMode.loadLevel(0);
+        } else {
+            MobileDebug.add('Game mode not initialized!', 'error');
+        }
+        
+        // Wait for game to fully settle
+        MobileDebug.add('Waiting for game to settle before showing tutorial...', 'info');
+        await new Promise(r => setTimeout(r, 300));
+        
+        // Show tutorial (THE CRITICAL STEP)
+        MobileDebug.add('Attempting to show tutorial...', 'event');
+        const tutorialShown = await showTutorialSafely();
+        
+        if (tutorialShown) {
+            MobileDebug.add('✓ Tutorial successfully shown!', 'success');
+        } else {
+            MobileDebug.add('✗ Tutorial failed to show', 'error');
+        }
     };
 
     // ========================================================================
     // INITIALIZATION
     // ========================================================================
     const initMenuFix = () => {
-        MobileDebug.add('Menu Fix V5 initializing...', 'info');
-        MobileDebug.add(`Document readyState: ${document.readyState}`, 'info');
+        MobileDebug.add('Menu Fix V6 initializing...', 'info');
+        MobileDebug.add(`User Agent: ${navigator.userAgent.substring(0, 60)}...`, 'info');
+        MobileDebug.add(`Touch: ${'ontouchstart' in window}, Pointer: ${'PointerEvent' in window}`, 'info');
 
         // Cache DOM references
         funOverlay = document.getElementById('funGameStartOverlay');
@@ -413,8 +668,8 @@
         funMeta = document.getElementById('funGameStartMeta');
         funSlots = document.getElementById('funGameStartSlots');
         
-        MobileDebug.add(`Found funOverlay: ${!!funOverlay}`, 'info');
-        MobileDebug.add(`Found mainMenuOverlay: ${!!mainMenuOverlay}`, 'info');
+        MobileDebug.add(`DOM: funOverlay=${!!funOverlay}, mainMenu=${!!mainMenuOverlay}`, 'info');
+        MobileDebug.logGlobalState();
 
         const ensureDefaultTriangle = () => {
             if (window.app) {
@@ -456,20 +711,20 @@
         // ====================================================================
         const funBtn = document.getElementById('btnFunMode');
         if (funBtn) {
-            MobileDebug.add('Found btnFunMode, replacing with fixed version', 'info');
+            MobileDebug.add('Found btnFunMode, attaching handler', 'info');
             
             const newFunBtn = funBtn.cloneNode(true);
             funBtn.parentNode.replaceChild(newFunBtn, funBtn);
 
             addUniversalClickHandler(newFunBtn, () => {
-                MobileDebug.add('Fun Mode button pressed - opening panel', 'event');
+                MobileDebug.add('Fun Mode button pressed', 'event');
                 stopMusic();
                 hideElement('learnPage');
                 hideElement('gameTutorialPage');
                 openFunPanel();
             });
             
-            MobileDebug.add('btnFunMode handler attached', 'info');
+            MobileDebug.add('btnFunMode handler attached', 'success');
         } else {
             MobileDebug.add('CRITICAL: btnFunMode not found!', 'error');
         }
@@ -499,10 +754,12 @@
         }
 
         // ====================================================================
-        // 5. FIX "New Game" Button
+        // 5. FIX "New Game" Button - THE MAIN FIX
         // ====================================================================
         const funNewBtn = document.getElementById('funGameStartNew');
         if (funNewBtn) {
+            MobileDebug.add('Found funGameStartNew, attaching handler', 'info');
+            
             const newBtn = funNewBtn.cloneNode(true);
             funNewBtn.parentNode.replaceChild(newBtn, funNewBtn);
             
@@ -510,77 +767,41 @@
                 MobileDebug.add('New Game button pressed', 'event');
                 
                 const status = getFunSaveStatus();
+                
+                // Confirm overwrite if save exists
                 if (status.activeHasSave) {
                     let confirmNew = false;
                     if (window.appConfirm) {
-                        confirmNew = await window.appConfirm(
-                            `Start a new game in Slot ${status.activeSlot}? This will overwrite the current save.`,
-                            {
-                                title: 'Overwrite Save?',
-                                confirmText: 'Yes, Overwrite',
-                                cancelText: 'Cancel'
-                            }
-                        );
+                        try {
+                            confirmNew = await window.appConfirm(
+                                `Start a new game in Slot ${status.activeSlot}? This will overwrite the current save.`,
+                                {
+                                    title: 'Overwrite Save?',
+                                    confirmText: 'Yes, Overwrite',
+                                    cancelText: 'Cancel'
+                                }
+                            );
+                        } catch (e) {
+                            MobileDebug.add(`Confirm dialog error: ${e.message}`, 'error');
+                            confirmNew = confirm(`Start a new game in Slot ${status.activeSlot}? This will overwrite the current save.`);
+                        }
                     } else {
                         confirmNew = confirm(`Start a new game in Slot ${status.activeSlot}? This will overwrite the current save.`);
                     }
 
                     if (!confirmNew) {
+                        MobileDebug.add('User cancelled new game', 'info');
                         return;
                     }
                 }
                 
-                // Clear save data and tutorial_seen flag for fresh start
-                localStorage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
-                localStorage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
-                localStorage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
-                localStorage.removeItem('tutorial_seen'); // Force tutorial to show for new game
-                
-                closeFunPanel();
-
-                runTransitionOverlay(() => {
-                    // Ensure all overlays are hidden
-                    hideElement('mainMenuOverlay');
-                    hideElement('learnPage');
-                    hideElement('gameTutorialPage');
-                    
-                    // Double-ensure learnPage is hidden (belt and suspenders)
-                    const learnPageEl = document.getElementById('learnPage');
-                    if (learnPageEl) {
-                        learnPageEl.style.display = 'none';
-                        learnPageEl.classList.remove('active');
-                    }
-
-                    if (window.game) {
-                        MobileDebug.add('Starting beginner mode...', 'info');
-                        window.game.startMode('beginner');
-                        
-                        if (window.game.currentMode) {
-                            window.game.currentMode.setActiveSaveSlot(status.activeSlot);
-                            window.game.currentMode.loadLevel(0);
-                        }
-
-                        // Show tutorial after game initializes
-                        // Use longer delay to ensure game mode is fully set up
-                        setTimeout(() => {
-                            MobileDebug.add('Attempting to show tutorial...', 'info');
-                            if (window.tutorial) {
-                                try {
-                                    window.tutorial.show();
-                                    MobileDebug.add('Tutorial show() called successfully', 'info');
-                                } catch (err) {
-                                    MobileDebug.add(`Tutorial error: ${err.message}`, 'error');
-                                    console.error('Tutorial show error:', err);
-                                }
-                            } else {
-                                MobileDebug.add('Tutorial instance not found!', 'error');
-                            }
-                        }, 200);
-                    } else {
-                        MobileDebug.add('Game instance not found', 'error');
-                    }
-                });
+                // Start the new game with proper async flow
+                await startNewGame(status);
             });
+            
+            MobileDebug.add('funGameStartNew handler attached', 'success');
+        } else {
+            MobileDebug.add('funGameStartNew not found', 'error');
         }
 
         // ====================================================================
@@ -622,31 +843,30 @@
             });
         }
 
-        MobileDebug.add('Menu Fix V5 initialization complete', 'info');
+        MobileDebug.add('Menu Fix V6 initialization complete!', 'success');
     };
 
     // ========================================================================
     // ROBUST DOM READY HANDLING
-    // Fixes the race condition where DOMContentLoaded may have already fired
     // ========================================================================
     const onDOMReady = (callback) => {
         if (document.readyState === 'loading') {
-            // DOM not ready yet, wait for event
             document.addEventListener('DOMContentLoaded', callback);
         } else {
-            // DOM already ready, call immediately
-            // Use setTimeout to ensure call stack is clear
+            // Use setTimeout(0) to ensure we're in a clean call stack
             setTimeout(callback, 0);
         }
     };
 
-    // Start initialization with debug overlay
+    // Start initialization
     onDOMReady(() => {
         MobileDebug.init();
         initMenuFix();
     });
 
-    // Export openFunPanel for potential external use
+    // Export for external use and debugging
     window.openFunGamePanel = openFunPanel;
+    window.MobileDebug = MobileDebug;
+    window.showTutorialSafely = showTutorialSafely;
 
 })();
