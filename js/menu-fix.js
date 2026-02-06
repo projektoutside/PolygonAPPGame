@@ -11,6 +11,39 @@
     // DEBUG SYSTEM
     // ========================================================================
     const DEBUG_MODE = localStorage.getItem('POLYGON_DEBUG') === 'true';
+
+    const getStorageAdapter = () => {
+        if (window.SafeStorage && typeof window.SafeStorage.getItem === 'function') {
+            return window.SafeStorage;
+        }
+        return window.localStorage;
+    };
+
+    const storageGetItem = (key) => {
+        try {
+            return getStorageAdapter().getItem(key);
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const storageSetItem = (key, value) => {
+        try {
+            getStorageAdapter().setItem(key, value);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    };
+
+    const storageRemoveItem = (key) => {
+        try {
+            getStorageAdapter().removeItem(key);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    };
     
     const MobileDebug = {
         overlay: null,
@@ -306,17 +339,37 @@
     // SAVE SLOT UTILITIES
     // ========================================================================
     const getActiveFunSlot = (maxSlots = 3) => {
-        const stored = parseInt(localStorage.getItem('polygonFunActiveSlot'), 10);
+        const stored = parseInt(storageGetItem('polygonFunActiveSlot'), 10);
         return (Number.isFinite(stored) && stored >= 1 && stored <= maxSlots) ? stored : 1;
+    };
+
+    const isValidSlotDataShape = (slotData) => {
+        if (!slotData || typeof slotData !== 'object') return false;
+        if (!slotData.appState || typeof slotData.appState !== 'object') return false;
+        const polygons = slotData.appState.polygons;
+        if (!Array.isArray(polygons) || polygons.length === 0) return false;
+        return polygons.every(poly => Array.isArray(poly?.vertices) && poly.vertices.length >= 3);
+    };
+
+    const getFunSlotVisualData = (slot) => {
+        try {
+            const key = `polygonFunSaveSlot${slot}`;
+            const raw = storageGetItem(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === 'object') ? parsed : null;
+        } catch (e) {
+            return null;
+        }
     };
 
     const getFunSlotData = (slot) => {
         try {
             const key = `polygonFunSaveSlot${slot}`;
-            const raw = localStorage.getItem(key);
+            const raw = storageGetItem(key);
             if (!raw) return null;
             const parsed = JSON.parse(raw);
-            return (parsed && typeof parsed === 'object') ? parsed : null;
+            return isValidSlotDataShape(parsed) ? parsed : null;
         } catch (e) {
             return null;
         }
@@ -327,7 +380,32 @@
             return `Slot ${slot}: Empty`;
         }
         const levelIndex = Number.isFinite(slotData.levelIndex) ? slotData.levelIndex + 1 : null;
-        return `Slot ${slot}: ${levelIndex ? `Level ${levelIndex}` : 'Unknown level'}`;
+        const stars = getFunSlotStars(slot, slotData);
+        const totalStars = stars.reduce((sum, value) => sum + value, 0);
+        return `Slot ${slot}: ${levelIndex ? `Level ${levelIndex}` : 'Unknown level'} • ${totalStars}★`;
+    };
+
+    const getFunSlotStars = (slot, slotData = null) => {
+        const slotStars = Array.isArray(slotData?.stars) ? slotData.stars : null;
+
+        let storedStars = null;
+        try {
+            const starsRaw = storageGetItem(`polygonFunStarsSlot${slot}`);
+            const parsed = starsRaw ? JSON.parse(starsRaw) : null;
+            storedStars = Array.isArray(parsed) ? parsed : null;
+        } catch (e) {
+            storedStars = null;
+        }
+
+        const source = Array.isArray(storedStars) && storedStars.length
+            ? storedStars
+            : (Array.isArray(slotStars) ? slotStars : []);
+
+        return source.map(value => {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return 0;
+            return Math.max(0, Math.min(3, Math.floor(num)));
+        });
     };
 
     const getFunSaveStatus = (slotCount = 3) => {
@@ -335,27 +413,31 @@
         let hasAnySave = false;
         
         for (let slot = 1; slot <= slotCount; slot++) {
-            const slotData = getFunSlotData(slot);
-            if (slotData && slotData.appState) {
+            const visualData = getFunSlotVisualData(slot);
+            if (visualData && visualData.appState) {
                 hasAnySave = true;
                 break;
             }
         }
         
         const activeSlotData = getFunSlotData(activeSlot);
+        const activeSlotVisualData = getFunSlotVisualData(activeSlot) || activeSlotData;
         const activeHasSave = !!(activeSlotData && activeSlotData.appState);
         
-        return { activeSlot, activeSlotData, activeHasSave, hasAnySave };
+        return { activeSlot, activeSlotData, activeSlotVisualData, activeHasSave, hasAnySave };
     };
 
     const formatSlotStatus = (slot, slotData, isActive) => {
         if (!slotData || !slotData.appState) {
-            return { label: 'Empty', detail: 'No save data' };
+            return { label: 'Empty', detail: 'No save data', starsDetail: 'Stars: 0★' };
         }
         const levelIndex = Number.isFinite(slotData.levelIndex) ? slotData.levelIndex + 1 : null;
+        const stars = getFunSlotStars(slot, slotData);
+        const totalStars = stars.reduce((sum, value) => sum + value, 0);
         return {
             label: isActive ? 'Active' : 'Saved',
-            detail: levelIndex ? `Level ${levelIndex}` : 'Unknown'
+            detail: levelIndex ? `Level ${levelIndex}` : 'Unknown level',
+            starsDetail: `Stars: ${totalStars}★`
         };
     };
 
@@ -378,13 +460,15 @@
         mainMenuOverlay.style.display = 'flex';
         mainMenuOverlay.style.pointerEvents = 'auto';
 
-        // Always resume menu music whenever main menu becomes visible.
-        if (typeof window.playBackgroundMusic === 'function') {
-            try {
+        // Always restart menu music from the beginning whenever main menu becomes visible.
+        try {
+            if (typeof window.restartBackgroundMusic === 'function') {
+                window.restartBackgroundMusic();
+            } else if (typeof window.playBackgroundMusic === 'function') {
                 window.playBackgroundMusic();
-            } catch (e) {
-                MobileDebug.add(`Music resume error: ${e.message}`, 'warn');
             }
+        } catch (e) {
+            MobileDebug.add(`Music resume error: ${e.message}`, 'warn');
         }
 
         MobileDebug.add('Main menu shown', 'info');
@@ -394,7 +478,7 @@
         if (!funMeta) return;
         const status = getFunSaveStatus();
         funMeta.textContent = status.hasAnySave
-            ? getFunSlotSummary(status.activeSlot, status.activeSlotData)
+            ? getFunSlotSummary(status.activeSlot, status.activeSlotVisualData)
             : 'No saved games. Start a new game!';
     };
 
@@ -446,8 +530,9 @@
 
         for (let slot = 1; slot <= maxSlots; slot++) {
             const slotData = getFunSlotData(slot);
+            const slotVisualData = getFunSlotVisualData(slot) || slotData;
             const isActive = slot === status.activeSlot;
-            const slotStatus = formatSlotStatus(slot, slotData, isActive);
+            const slotStatus = formatSlotStatus(slot, slotVisualData, isActive);
 
             const card = document.createElement('div');
             card.className = `fun-game-start-slot${isActive ? ' active' : ''}`;
@@ -464,6 +549,7 @@
                     <span class="fun-game-start-slot-status">${slotStatus.label}</span>
                 </div>
                 <div class="fun-game-start-slot-detail">${slotStatus.detail}</div>
+                <div class="fun-game-start-slot-detail">${slotStatus.starsDetail}</div>
                 <button class="fun-game-start-slot-action" ${slotData && slotData.appState ? '' : 'disabled'}>
                     Load
                 </button>
@@ -475,7 +561,7 @@
                     return;
                 }
                 MobileDebug.add(`Loading slot ${slot}`, 'event');
-                localStorage.setItem('polygonFunActiveSlot', `${slot}`);
+                storageSetItem('polygonFunActiveSlot', `${slot}`);
                 startFunModeFromSlot(slot, slotData);
             };
 
@@ -495,7 +581,7 @@
                 if (e.target.closest('.fun-game-start-slot-action')) return;
                 
                 MobileDebug.add(`Selecting slot ${slot}`, 'event');
-                localStorage.setItem('polygonFunActiveSlot', `${slot}`);
+                storageSetItem('polygonFunActiveSlot', `${slot}`);
                 renderFunSlots();
                 updateFunPanelMeta();
             });
@@ -708,10 +794,11 @@
             const musicFadePromise = fadeOutMusic(800);
             
             // Clear save data
-            localStorage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
-            localStorage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
-            localStorage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
-            localStorage.removeItem('tutorial_seen');
+            storageSetItem('polygonFunActiveSlot', `${status.activeSlot}`);
+            storageRemoveItem(`polygonFunSaveSlot${status.activeSlot}`);
+            storageRemoveItem(`polygonFunStarsSlot${status.activeSlot}`);
+            storageRemoveItem(`polygonFunSolutionsSlot${status.activeSlot}`);
+            storageRemoveItem('tutorial_seen');
             
             // Hide all menu overlays (invisible to user - masked)
             hideAllMenuOverlays();

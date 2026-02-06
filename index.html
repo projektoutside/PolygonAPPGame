@@ -75,28 +75,45 @@
             box-sizing: border-box;
         }
 
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         html {
             font-size: var(--base-font-size);
             -webkit-text-size-adjust: 100%;
             -moz-text-size-adjust: 100%;
             -ms-text-size-adjust: 100%;
             text-size-adjust: 100%;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a;
+            /* Match menu background */
+            margin: 0;
+            padding: 0;
         }
 
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             display: flex;
-            width: 100vw;
-            height: 100vh;
-            height: 100dvh;
+            width: 100%;
+            height: 100%;
+            min-height: 100dvh;
             /* Dynamic viewport height for mobile */
             overflow: hidden;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0f172a;
+            /* Match menu background to prevent edges */
             font-size: var(--base-font-size);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             touch-action: manipulation;
             /* Prevent double-tap zoom on buttons */
+            margin: 0;
+            padding: 0;
         }
 
         /* Main Layout - Fully Responsive */
@@ -119,8 +136,10 @@
 
         .app-container {
             display: flex;
-            width: 100vw;
-            height: 100vh;
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
             height: 100dvh;
             max-width: 100%;
             max-height: none;
@@ -128,10 +147,10 @@
             /* White background to match toolbar areas */
             border-radius: 0;
             margin: 0;
+            padding: 0;
             overflow: hidden;
             box-shadow: none;
             flex-direction: row;
-            position: relative;
         }
 
         /* Main Body Row - Ensure white background in top area */
@@ -682,7 +701,9 @@
         :-ms-fullscreen {
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: white;
+            margin: 0;
+            padding: 0;
         }
 
         body:fullscreen,
@@ -692,51 +713,22 @@
             display: flex;
             width: 100%;
             height: 100%;
+            background: white;
+            margin: 0;
+            padding: 0;
         }
 
         .fullscreen-active .canvas-container {
             height: 100vh;
-            width: 100vw;
+            width: 100%;
         }
 
         .fullscreen-active .app-container {
-            width: 100vw;
+            width: 100%;
             height: 100vh;
         }
 
-        /* Properties Display - Responsive */
-        .property-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 8px;
-            font-size: clamp(12px, 1.4vw, 14px);
-            gap: 12px;
-            min-height: 28px;
-            align-items: center;
-            border-radius: 4px;
-            transition: background-color 0.15s ease;
-        }
 
-        .property-row:hover {
-            background-color: #f8f9fa;
-        }
-
-        .property-label {
-            color: #64748b;
-            flex-shrink: 0;
-            font-weight: 500;
-            font-size: clamp(11px, 1.3vw, 13px);
-        }
-
-        .property-value {
-            font-weight: 600;
-            color: #1e293b;
-            text-align: right;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-size: clamp(12px, 1.4vw, 14px);
-        }
 
         /* Layer Item - Responsive */
         .layer-item {
@@ -875,34 +867,7 @@
             font-size: clamp(13px, 1.75vw, 16px);
         }
 
-        /* Triangle Classifier - Responsive */
-        .triangle-classifier {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 8px 10px;
-            border-radius: 6px;
-            margin: 0;
-            grid-column: 1 / -1;
-        }
 
-        .triangle-classifier-title {
-            font-weight: 600;
-            margin-bottom: 6px;
-            font-size: clamp(11px, 1.3vw, 13px);
-            opacity: 0.95;
-        }
-
-        .classifier-badge {
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.25);
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: clamp(10px, 1.2vw, 12px);
-            margin-right: 6px;
-            margin-top: 2px;
-            font-weight: 500;
-            backdrop-filter: blur(4px);
-        }
 
         /* Coordinate Display - Responsive */
         .coord-display {
@@ -1544,111 +1509,300 @@
             }
         }
 
-        /* Viewport controls final positioning (top-left below blue buttons) */
-        .viewport-controls {
-            position: absolute;
-            top: clamp(120px, 14vw, 130px);
-            left: clamp(12px, 2vw, 20px);
-            bottom: auto;
-            right: auto;
-            display: grid;
-            grid-template-columns: repeat(3, 42px);
-            grid-template-rows: repeat(2, 42px) auto;
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* BOTTOM UI PANELS - COMPLETELY NEW CSS FROM SCRATCH                  */
+        /* ═══════════════════════════════════════════════════════════════════ */
+
+        /* Game Controls Panel - ABOVE (Undo/Redo/Submit) */
+        .game-controls-panel {
+            position: fixed;
+            bottom: 94px;
+            /* Positioned just above grid panel (70px height + 24px gap for professional spacing) */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
             align-items: center;
-            justify-items: center;
-            gap: 8px;
-            padding: 10px;
+            gap: 12px;
+            padding: 10px 16px;
             background: rgba(255, 255, 255, 0.95);
-            border: 1px solid rgba(203, 213, 225, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.08);
             border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
-            backdrop-filter: blur(8px);
-            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(10px);
+            z-index: 1001;
+            /* Higher than grid panel */
+            display: none;
+            /* Hidden by default, shown by game.js */
         }
 
-        .pan-controls {
-            display: contents;
-        }
-
-        .pan-btn,
-        .zoom-btn {
-            width: 42px;
-            min-width: 42px;
-            height: 42px;
-            min-height: 42px;
-            border: 1px solid #cbd5e1;
-            background: #ffffff;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: 700;
-            color: #334155;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            transition: all 0.2s ease;
+        .game-ctrl-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0;
-            padding: 0;
+            min-width: 48px;
+            height: 48px;
+            padding: 0 16px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
         }
 
-        /* removed mobile-menu-toggle css if it was here, but i need to find the html */
-
-        .control-btn-blue {
-            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-            color: white;
-            border-color: #2563eb;
-            box-shadow: 0 2px 5px rgba(37, 99, 235, 0.3);
-        }
-
-        .pan-btn:hover,
-        .zoom-btn:hover {
+        .game-ctrl-btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+            background: #f8fafc;
         }
 
-        .control-btn-blue:hover {
-            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4);
+        .game-ctrl-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .game-ctrl-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .game-ctrl-btn.submit-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 0 24px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .game-ctrl-btn.submit-btn:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
             filter: brightness(1.05);
         }
 
-        .pan-btn:active,
-        .zoom-btn:active {
-            transform: scale(0.96);
+        .game-ctrl-btn.submit-btn:disabled {
+            background: #cbd5e1;
+            box-shadow: none;
         }
 
-        .grid-snap-controls {
-            grid-column: 1 / -1;
+        .btn-icon {
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .btn-text {
+            font-size: 15px;
+        }
+
+
+
+        /* Grid Tools Panel - BELOW (Grid/Zoom/Pan in single row) */
+        .grid-tools-panel {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            /* Reduced from 16px */
+            padding: 10px 14px;
+            /* Reduced from 12px 20px */
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 18px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            max-width: 95vw;
+            /* Never exceed 95% of viewport width */
+            overflow-x: auto;
+            /* Allow horizontal scroll if absolutely necessary */
+        }
+
+        .grid-snap-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            /* Reduced from 10px */
+            cursor: pointer;
+            user-select: none;
+            flex-shrink: 0;
+            /* Prevent shrinking */
+        }
+
+        .grid-snap-toggle input[type="checkbox"] {
+            width: 18px;
+            /* Reduced from 20px */
+            height: 18px;
+            cursor: pointer;
+            accent-color: #3b82f6;
+            flex-shrink: 0;
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            /* Reduced from 14px */
+            font-weight: 600;
+            color: #334155;
+            white-space: nowrap;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .panel-divider-vertical {
+            width: 1px;
+            height: 28px;
+            /* Reduced from 32px */
+            background: linear-gradient(to bottom,
+                    transparent,
+                    #e2e8f0 20%,
+                    #e2e8f0 80%,
+                    transparent);
+            flex-shrink: 0;
+        }
+
+        .grid-tool-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            margin-top: 6px;
-            padding-top: 6px;
-            border-top: 1px solid #e2e8f0;
-            width: 100%;
-            background: transparent;
-            border-radius: 0;
-        }
-
-        .grid-snap-controls input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: #3b82f6;
+            width: 38px;
+            /* Reduced from 44px */
+            height: 38px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-radius: 10px;
+            font-size: 16px;
+            /* Reduced from 18px */
+            font-weight: 700;
+            color: #475569;
             cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            /* Prevent shrinking */
         }
 
-        .grid-snap-controls .grid-snap-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #334155;
-            line-height: 1.2;
+        .grid-tool-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: #f8fafc;
+        }
+
+        .grid-tool-btn:active {
+            transform: scale(0.95);
+        }
+
+        .grid-tool-btn.zoom-btn {
+            font-size: 20px;
+            /* Reduced from 22px */
+        }
+
+        .grid-tool-btn.pan-btn {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+        }
+
+        .grid-tool-btn.pan-btn:hover {
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+            filter: brightness(1.05);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-controls-panel {
+                bottom: 118px;
+                /* Maintain professional 24px gap on mobile */
+                gap: 8px;
+                padding: 8px 12px;
+            }
+
+            .game-ctrl-btn {
+                min-width: 44px;
+                height: 44px;
+                padding: 0 12px;
+            }
+
+            .grid-tools-panel {
+                gap: 6px;
+                /* Further reduced for mobile */
+                padding: 8px 10px;
+                bottom: 20px;
+                max-width: 98vw;
+                /* Even more space on mobile */
+            }
+
+            .grid-tool-btn {
+                width: 36px;
+                /* Smaller on mobile */
+                height: 36px;
+            }
+
+            .toggle-label {
+                font-size: 12px;
+                /* Smaller text on mobile */
+            }
+
+            .grid-snap-toggle input[type="checkbox"] {
+                width: 16px;
+                height: 16px;
+            }
+
+            .panel-divider-vertical {
+                height: 24px;
+            }
+        }
+
+        /* Extra small devices */
+        @media (max-width: 480px) {
+            .grid-tools-panel {
+                gap: 4px;
+                /* Minimal gap for very small screens */
+                padding: 6px 8px;
+            }
+
+            .grid-tool-btn {
+                width: 32px;
+                /* Even smaller */
+                height: 32px;
+                font-size: 14px;
+            }
+
+            .grid-tool-btn.zoom-btn {
+                font-size: 18px;
+            }
+
+            .toggle-label {
+                font-size: 11px;
+            }
+        }
+
+        @media (max-width: 768px) and (orientation: landscape) {
+            .game-controls-panel {
+                right: 20px;
+                left: auto;
+                bottom: 118px;
+                /* Maintain same relative spacing in landscape */
+                transform: none;
+            }
+
+            .grid-tools-panel {
+                right: 20px;
+                left: auto;
+                transform: none;
+                max-width: 90vw;
+                /* Leave space on edges in landscape */
+            }
         }
 
         /* Coordinate Display */
         .coord-display {
             position: absolute;
-            bottom: clamp(60px, 8vw, 80px);
-            /* Pushed up */
+            top: 130px;
+            bottom: auto;
             left: clamp(16px, 2vw, 24px);
             background: rgba(255, 255, 255, 0.9);
             padding: 6px 12px;
@@ -1661,87 +1815,7 @@
             backdrop-filter: blur(4px);
         }
 
-        /* Bottom Properties Panel */
-        .bottom-panel {
-            width: 100%;
-            background: white;
-            border-top: 1px solid var(--color-border);
-            display: flex;
-            flex-direction: column;
-            transition: height 0.3s ease;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-            z-index: 1001;
-            height: 180px;
-            /* Default expanded height */
-        }
 
-        .bottom-panel.collapsed {
-            height: 40px;
-            /* Header height only */
-            pointer-events: none;
-            position: relative;
-        }
-
-        .bottom-panel.collapsed * {
-            pointer-events: none;
-        }
-
-        .bottom-panel.collapsed .bottom-panel-content {
-            display: none;
-            pointer-events: none;
-        }
-
-        .bottom-panel.collapsed .bottom-panel-header {
-            pointer-events: auto !important;
-            position: relative;
-            z-index: 1002;
-        }
-
-        .bottom-panel.collapsed .bottom-panel-header * {
-            pointer-events: auto;
-        }
-
-        .bottom-panel-header {
-            height: 40px;
-            padding: 0 16px;
-            background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--color-border);
-            cursor: pointer;
-        }
-
-        .bottom-panel-title {
-            font-weight: 600;
-            color: #4a5568;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .bottom-panel-toggle {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 4px;
-            color: #718096;
-            transition: transform 0.3s;
-        }
-
-        .bottom-panel.collapsed .bottom-panel-toggle {
-            transform: rotate(180deg);
-        }
-
-        .bottom-panel-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px 12px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 8px;
-            align-content: start;
-        }
 
         /* Ensure app container uses column flow */
         .app-container {
@@ -1974,12 +2048,12 @@
         /* Main Menu Overlay - AAA Quality */
         #mainMenuOverlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: transparent;
-            /* Canvas will provide background */
+            inset: -2px;
+            /* Slight overscan to prevent edge gaps */
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
+            background: #0f172a;
+            /* Dark background to match canvas/prevent white bleed */
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -1987,6 +2061,9 @@
             justify-content: center;
             opacity: 1;
             transition: opacity 0.5s ease-in-out;
+            overscroll-behavior: none;
+            margin: 0;
+            padding: 0;
         }
 
         #mainMenuOverlay.hidden {
@@ -1997,7 +2074,9 @@
         /* Fun Game Transition Overlay - Seamless Full-Screen Mask */
         #funTransitionOverlay {
             position: fixed;
-            inset: 0;
+            inset: -2px;
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2008,6 +2087,8 @@
             visibility: hidden;
             pointer-events: none;
             transition: opacity 0.4s ease-out, visibility 0s linear 0.4s;
+            margin: 0;
+            padding: 0;
         }
 
         #funTransitionOverlay.active {
@@ -2025,7 +2106,9 @@
 
         .fun-game-start-overlay {
             position: fixed;
-            inset: 0;
+            inset: -2px;
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
             display: none;
             align-items: center;
             justify-content: center;
@@ -2034,6 +2117,7 @@
             z-index: 10001;
             /* Above mainMenuOverlay (9999) */
             padding: 24px;
+            margin: 0;
             /* Mobile touch handling */
             -webkit-overflow-scrolling: touch;
             touch-action: manipulation;
@@ -2612,7 +2696,9 @@
 
         .game-results-overlay {
             position: fixed;
-            inset: 0;
+            inset: -2px;
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
             background: radial-gradient(circle at top, rgba(59, 130, 246, 0.35), rgba(15, 23, 42, 0.78));
             display: none;
             align-items: center;
@@ -2620,6 +2706,7 @@
             z-index: 10200;
             /* Above game UI */
             padding: 24px;
+            margin: 0;
             backdrop-filter: blur(8px);
             /* Mobile touch handling */
             -webkit-overflow-scrolling: touch;
@@ -2907,7 +2994,9 @@
 
         .box-score-overlay {
             position: fixed;
-            inset: 0;
+            inset: -2px;
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
             background: rgba(15, 23, 42, 0.72);
             display: none;
             align-items: center;
@@ -2915,6 +3004,7 @@
             z-index: 10500;
             /* Above game panels */
             padding: 24px;
+            margin: 0;
             backdrop-filter: blur(10px);
             /* Mobile touch handling */
             -webkit-overflow-scrolling: touch;
@@ -3288,7 +3378,7 @@
     <!-- Main Menu Overlay -->
     <div id="mainMenuOverlay">
         <canvas id="bgCanvas"
-            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;"></canvas>
+            style="position: absolute; inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); z-index: -1; display: block;"></canvas>
         <!-- Shattered Prism Title -->
         <div class="menu-title-container">
             <!-- Decorative Shards -->
@@ -3434,34 +3524,50 @@
                     <button class="fullscreen-top-btn" id="fullscreenToggle" title="Toggle Fullscreen">⤢</button>
                 </div>
 
-                <!-- Viewport Controls (Pan + Zoom) -->
-                <div class="viewport-controls" aria-label="Viewport controls">
-                    <div class="pan-controls" aria-label="Pan controls">
-                        <button class="zoom-btn" id="zoomIn" aria-label="Zoom in">+</button>
-                        <button class="pan-btn control-btn-blue" id="panUp" aria-label="Pan up">↑</button>
-                        <button class="zoom-btn" id="zoomOut" aria-label="Zoom out">-</button>
+                <!-- ═══════════════════════════════════════════════════════════ -->
+                <!-- BOTTOM UI PANELS - REBUILT FROM SCRATCH                      -->
+                <!-- ═══════════════════════════════════════════════════════════ -->
 
-                        <button class="pan-btn control-btn-blue" id="panLeft" aria-label="Pan left">←</button>
-                        <button class="pan-btn control-btn-blue" id="panDown" aria-label="Pan down">↓</button>
-                        <button class="pan-btn control-btn-blue" id="panRight" aria-label="Pan right">→</button>
-                    </div>
+                <!-- Game Controls Panel - ABOVE (Undo/Redo/Submit) -->
+                <div class="game-controls-panel" id="gameControls">
+                    <button class="game-ctrl-btn undo-btn" id="gameUndoBtn" title="Undo last action">
+                        <span class="btn-icon">↶</span>
+                    </button>
+                    <button class="game-ctrl-btn redo-btn" id="gameRedoBtn" title="Redo action">
+                        <span class="btn-icon">↷</span>
+                    </button>
+                    <button class="game-ctrl-btn submit-btn" id="gameSubmitBtn" title="Submit solution">
+                        <span class="btn-text">Submit</span>
+                    </button>
+                </div>
 
-                    <label class="grid-snap-controls" for="gridSnapToggle" aria-label="Grid snap control">
-                        <input type="checkbox" id="gridSnapToggle" checked aria-label="Toggle grid snap"
-                            title="Toggle grid snap">
-                        <span class="grid-snap-label" id="gridSnapLabel">Grid Snap: On</span>
+                <!-- Grid Tools Panel - BELOW (Grid/Zoom/Pan in single row) -->
+                <div class="grid-tools-panel">
+                    <!-- Grid Snap Toggle -->
+                    <label class="grid-snap-toggle" for="gridSnapToggle">
+                        <input type="checkbox" id="gridSnapToggle" checked>
+                        <span class="toggle-label" id="gridSnapLabel">Grid Snap: On</span>
                     </label>
+
+                    <!-- Divider -->
+                    <div class="panel-divider-vertical"></div>
+
+                    <!-- Zoom Controls -->
+                    <button class="grid-tool-btn zoom-btn" id="zoomIn" title="Zoom in">+</button>
+                    <button class="grid-tool-btn zoom-btn" id="zoomOut" title="Zoom out">−</button>
+
+                    <!-- Divider -->
+                    <div class="panel-divider-vertical"></div>
+
+                    <!-- Pan Controls -->
+                    <button class="grid-tool-btn pan-btn" id="panLeft" title="Pan left">←</button>
+                    <button class="grid-tool-btn pan-btn" id="panUp" title="Pan up">↑</button>
+                    <button class="grid-tool-btn pan-btn" id="panDown" title="Pan down">↓</button>
+                    <button class="grid-tool-btn pan-btn" id="panRight" title="Pan right">→</button>
                 </div>
 
                 <!-- Coordinate Display -->
                 <div class="coord-display" id="coordDisplay">X: 0, Y: 0</div>
-
-                <!-- Polygon Fun Game Controls -->
-                <div class="game-controls" id="gameControls">
-                    <button class="secondary" id="gameUndoBtn" aria-label="Undo" title="Undo">↶</button>
-                    <button class="secondary" id="gameRedoBtn" aria-label="Redo" title="Redo">↷</button>
-                    <button id="gameSubmitBtn">Submit</button>
-                </div>
             </div>
 
             <!-- Right Sidebar -->
@@ -3515,23 +3621,7 @@
             </div>
         </div>
 
-        <!-- Bottom Properties Panel -->
-        <div id="bottomPropertiesPanel" class="bottom-panel expanded">
-            <div class="bottom-panel-header">
-                <div class="bottom-panel-title">
-                    <span>📊 Properties</span>
-                </div>
-                <button class="bottom-panel-toggle" id="bottomPanelToggle">
-                    <span class="toggle-icon">▼</span>
-                </button>
-            </div>
-            <div class="bottom-panel-content" id="propertiesPanelContent">
-                <div class="property-row" style="justify-content: center; padding: 12px;">
-                    <span class="property-label" style="color: #94a3b8; font-style: italic;">Select a polygon to view
-                        properties</span>
-                </div>
-            </div>
-        </div>
+
     </div>
 
     <!-- Combine Tool Modal -->
@@ -3760,6 +3850,7 @@
 
     <script src="js/geometry.js"></script>
     <script src="js/levels.js"></script>
+    <script src="js/storage.js"></script>
     <script src="js/game.js"></script>
     <script>
         const AppDialog = (() => {
@@ -3904,13 +3995,15 @@
                 this.overlay.style.pointerEvents = 'auto';
                 this.overlay.classList.remove('hidden');
 
-                // Always ensure main menu background music is active when menu is shown.
-                if (typeof window.playBackgroundMusic === 'function') {
-                    try {
+                // Always restart main menu background music from the beginning when menu is shown.
+                try {
+                    if (typeof window.restartBackgroundMusic === 'function') {
+                        window.restartBackgroundMusic();
+                    } else if (typeof window.playBackgroundMusic === 'function') {
                         window.playBackgroundMusic();
-                    } catch (e) {
-                        console.warn('[MainMenu] Failed to start background music:', e);
                     }
+                } catch (e) {
+                    console.warn('[MainMenu] Failed to start background music:', e);
                 }
             },
 
@@ -4224,7 +4317,7 @@
                 this.setupToolbar();
                 this.setupColorPicker();
                 this.setupResizablePanels();
-                this.setupBottomPanel();
+
                 this.setupShapeMenu();
                 this.setupResponsiveHandlers();
 
@@ -4405,84 +4498,7 @@
 
             }
 
-            setupBottomPanel() {
-                const setupPanel = () => {
-                    const panel = document.getElementById('bottomPropertiesPanel');
-                    const header = document.querySelector('#bottomPropertiesPanel .bottom-panel-header');
-                    const toggleButton = document.getElementById('bottomPanelToggle');
 
-                    if (!panel || !header || !toggleButton) {
-                        // Retry if elements not found yet
-                        setTimeout(setupPanel, 50);
-                        return;
-                    }
-
-                    // Helper function to toggle the panel
-                    const togglePanel = () => {
-                        panel.classList.toggle('collapsed');
-                        panel.classList.toggle('expanded');
-
-                        // Animate resize during transition to prevent stretching/squashing
-                        const startTime = Date.now();
-                        const duration = 350; // Slightly longer than CSS to ensure we catch the end
-
-                        const animateResize = () => {
-                            // Synchronous update prevents white flash
-                            // Update dimensions immediately
-                            this.syncResize(true);
-                            // Force redraw immediately
-                            this.gridNeedsRedraw = true;
-                            this.lastGridState = null;
-                            this.render(true);
-
-                            if (Date.now() - startTime < duration) {
-                                requestAnimationFrame(animateResize);
-                            } else {
-                                // Final ensure of text/layout sharpness
-                                this.resizeCanvas();
-                            }
-                        };
-
-                        requestAnimationFrame(animateResize);
-                    };
-
-                    // Handle header click first - but ignore clicks on the button
-                    header.addEventListener('click', (e) => {
-                        // Check if the click originated from the button or its children
-                        const clickedButton = e.target.closest('.bottom-panel-toggle') ||
-                            e.target.closest('#bottomPanelToggle');
-                        if (clickedButton || e.target === toggleButton) {
-                            return; // Let button handler deal with it
-                        }
-                        e.preventDefault();
-                        togglePanel();
-                    });
-
-                    // Handle button click - stop propagation so header doesn't also trigger
-                    toggleButton.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        togglePanel();
-                        return false;
-                    });
-
-                    // Also handle clicks on the toggle icon span inside the button
-                    const toggleIcon = toggleButton.querySelector('.toggle-icon');
-                    if (toggleIcon) {
-                        toggleIcon.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            togglePanel();
-                            return false;
-                        });
-                    }
-                };
-
-                // Try immediately, then with small delay if needed
-                setupPanel();
-            }
 
             setupCanvas() {
                 this.resizeCanvas();
@@ -4728,7 +4744,6 @@
                     confirmSelBtn.onclick = () => {
                         confirmModal.style.display = 'none';
                         this.splitStep = 1; // Move to drawing line phase
-                        this.updateSplitPrompt("Step 2: Draw a line across the polygon to split it.");
                         this.render();
                     };
                 }
@@ -4914,7 +4929,7 @@
                 this.polygons.push(polygon);
                 this.selectedPolygon = polygon;
                 this.saveHistory();
-                this.updateProperties();
+
                 this.updateLayers();
                 this.render();
 
@@ -5087,7 +5102,6 @@
                 this.markGridForRedraw();
 
                 this.saveHistory();
-                this.updateProperties();
                 this.updateLayers();
             }
 
@@ -5339,7 +5353,7 @@
 
                     // STEP 9: Update UI
                     this.selectedPolygon = newPoly;
-                    this.updateProperties();
+
                     this.updateLayers();
                     this.exitCombineMode();
                     this.setTool('select');
@@ -5370,7 +5384,7 @@
                         this.selectedPolygon = null;
                     }
 
-                    this.updateProperties();
+
                     this.updateLayers();
                     this.render();
 
@@ -5527,7 +5541,6 @@
                 const cancelBtn = document.getElementById('cancelSplitBtn');
                 if (cancelBtn) cancelBtn.style.display = 'flex';
 
-                this.updateSplitPrompt("Draw a line across shapes to split them.");
                 this.selectedVertex = null;
 
                 // Removed visual controls (Free, Horizontal, etc) as per user request
@@ -5565,45 +5578,7 @@
                 this.render();
             }
 
-            updateSplitPrompt(text) {
-                let prompt = document.getElementById('splitPrompt');
 
-                if (!text) {
-                    if (prompt) prompt.style.display = 'none';
-                    return;
-                }
-
-                if (!prompt) {
-                    prompt = document.createElement('div');
-                    prompt.id = 'splitPrompt';
-                    prompt.style.cssText = `
-                        position: absolute;
-                        top: auto;
-                        bottom: 110px; /* Moved to bottom to avoid obscuring polygon */
-                        left: 50%;
-                        transform: translateX(-50%);
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        color: white;
-                        padding: 10px 20px;
-                        border-radius: 20px;
-                        font-size: 14px;
-                        font-weight: 600;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                        z-index: 1000;
-                        pointer-events: none;
-                        white-space: nowrap;
-                        animation: fadeIn 0.3s ease-out;
-                        max-width: 90%;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        text-align: center;
-                    `;
-                    document.querySelector('.canvas-container').appendChild(prompt);
-                } else {
-                    prompt.style.display = 'block';
-                }
-                prompt.textContent = text;
-            }
 
             updateSplitLineConstraint(pos) {
                 if (!pos) return;
@@ -5794,12 +5769,6 @@
                     // Reset UI
                     if (isFunGameMode) {
                         this.splitStep = 1;
-                        const level = (window.game && window.game.currentMode) ? (window.game.currentMode.currentLevelIndex || 0) : 0;
-                        if (level === 0) {
-                            this.updateSplitPrompt(promptText);
-                        } else {
-                            this.updateSplitPrompt("");
-                        }
                         this.render(true);
                     } else {
                         this.render();
@@ -5861,7 +5830,7 @@
                     this.selectedVertex = null;
 
                     this.saveHistory();
-                    this.updateProperties();
+
                     this.updateLayers();
 
                     // Notify Game Mode
@@ -5890,11 +5859,6 @@
                     if (isFunGameMode) {
                         this.splitStep = 1;
                         const level = (window.game && window.game.currentMode) ? (window.game.currentMode.currentLevelIndex || 0) : 0;
-                        if (level === 0) {
-                            this.updateSplitPrompt(promptText);
-                        } else {
-                            this.updateSplitPrompt("");
-                        }
                         this.render(true);
                     }
                 }
@@ -6257,14 +6221,14 @@
                     // Update the vertex position directly
                     this.selectedVertex.x = snappedPos.x;
                     this.selectedVertex.y = snappedPos.y;
-                    this.updateProperties();
+
                     this.render(true); // Force render during drag for responsiveness
                 } else if (this.isDragging && this.selectedPolygon && !this.selectedVertex) {
                     const dx = snappedPos.x - this.dragStart.x;
                     const dy = snappedPos.y - this.dragStart.y;
                     this.selectedPolygon.move(dx, dy);
                     this.dragStart = snappedPos;
-                    this.updateProperties();
+
                     this.render(true); // Force render during drag for responsiveness
                 }
 
@@ -6283,7 +6247,7 @@
                     // Only update if changed to avoid DOM thrashing
                     if (this._lastHoverPoly !== hoverPoly) {
                         this._lastHoverPoly = hoverPoly;
-                        this.updateProperties(hoverPoly);
+
                     }
                 }
             }
@@ -6362,7 +6326,7 @@
                         if (!this.isPointOnPolygon(snappedPos)) {
                             this.selectedPolygon = null;
                             this.selectedVertex = null;
-                            this.updateProperties();
+
                             this.updateLayers();
                             this.render();
                         }
@@ -6558,7 +6522,7 @@
                             // panStartPos already set to screen coordinates above
                             // Don't lock gesture yet - allow panning if moved far enough
                         }
-                        this.updateProperties();
+
                         this.updateLayers();
                         this.render();
                         return;
@@ -6766,7 +6730,7 @@
                         // Drag vertex (fallback - should be handled above)
                         this.selectedVertex.x = snappedPos.x;
                         this.selectedVertex.y = snappedPos.y;
-                        this.updateProperties();
+
                         this.render(true); // Force render during drag
                     } else if (this.selectedPolygon && this.dragStart) {
                         // Drag polygon
@@ -6881,7 +6845,7 @@
                             this.panStartPos = null;
                             this.selectedPolygon = null;
                             this.selectedVertex = null;
-                            this.updateProperties();
+
                             this.updateLayers();
                             this.render();
                             // Grid will automatically be visible since nothing is selected
@@ -6985,7 +6949,7 @@
                             // Don't set isDragging=true yet - wait for actual mouse movement
                             this.potentialDragStart = pos;
                             this.dragStart = pos;
-                            this.updateProperties();
+
                             this.updateLayers();
                             this.render();
                             return;
@@ -7003,7 +6967,7 @@
                         // Don't set isDragging=true yet - wait for actual mouse movement
                         this.potentialDragStart = pos;
                         this.dragStart = pos;
-                        this.updateProperties();
+
                         this.updateLayers();
                         this.render();
                         return;
@@ -7058,84 +7022,24 @@
                 }
             }
 
-            updateProperties(targetPoly = null) {
-                const panel = document.getElementById('propertiesPanelContent');
-                let polyToView = targetPoly || this.selectedPolygon;
+            // Compatibility no-op used by history/load flows and older UI hooks.
+            // Keep this method defined so undo/redo/loadState cannot crash when
+            // optional properties-side UI is not mounted.
+            updateProperties() {
+                return;
+            }
 
-                // Game Mode Persistence:
-                // If we are in Game Mode and no polygon is explicitly provided or selected,
-                // try to stick to the last viewed one to avoid flickering/clearing during interactions.
-                if (this.isGameModeActive() && !polyToView) {
-                    if (this.lastViewedPolygon && this.polygons.includes(this.lastViewedPolygon)) {
-                        polyToView = this.lastViewedPolygon;
-                    } else if (this.polygons.length > 0) {
-                        // Fallback to the first polygon (usually the target shape in early levels)
-                        polyToView = this.polygons[0];
-                    }
-                }
-
-                if (!polyToView) {
-                    panel.innerHTML = '<div class="property-row" style="justify-content: center; padding: 12px;"><span class="property-label" style="color: #94a3b8; font-style: italic;">Select or hover over a polygon to view properties</span></div>';
+            // Compatibility helper used by split workflows.
+            // Safely updates split prompt text when the element exists.
+            updateSplitPrompt(text) {
+                const promptEl = document.getElementById('splitPrompt');
+                if (!promptEl) {
                     return;
                 }
-
-                // Cache it for next time
-                this.lastViewedPolygon = polyToView;
-
-                const areaPx = Math.abs(polyToView.getArea());
-                const perimeterPx = polyToView.getPerimeter();
-
-                const area = areaPx / (this.gridSize * this.gridSize);
-                const perimeter = perimeterPx / this.gridSize;
-                const vertices = polyToView.vertices.length;
-
-                // Determine Polygon Type based on vertices
-                let polyType = 'Polygon';
-                const vCount = polyToView.vertices.length;
-                if (vCount === 3) polyType = 'Triangle';
-                else if (vCount === 4) polyType = 'Quadrilateral';
-                else if (vCount === 5) polyType = 'Pentagon';
-                else if (vCount === 6) polyType = 'Hexagon';
-                else if (vCount === 7) polyType = 'Heptagon';
-                else if (vCount === 8) polyType = 'Octagon';
-                else if (vCount === 9) polyType = 'Nonagon';
-                else if (vCount === 10) polyType = 'Decagon';
-                else if (vCount === 12) polyType = 'Dodecagon';
-                else polyType = `${vCount}-gon`;
-
-                let html = `
-            <div class="property-row">
-                <span class="property-label">Type:</span>
-                <span class="property-value">${polyType}</span>
-            </div>
-            <div class="property-row">
-                <span class="property-label">Vertices:</span>
-                <span class="property-value">${vertices}</span>
-            </div>
-            <div class="property-row">
-                <span class="property-label">Perimeter:</span>
-                <span class="property-value">${perimeter.toFixed(2)} units</span>
-            </div>
-            <div class="property-row">
-                <span class="property-label">Area:</span>
-                <span class="property-value">${area.toFixed(2)} sq units</span>
-            </div>
-        `;
-
-                // Add triangle classifier if it's a triangle
-                if (vertices === 3) {
-                    const classification = this.classifyTriangle(polyToView);
-                    html += `
-                <div class="triangle-classifier">
-                    <div class="triangle-classifier-title">Triangle Type:</div>
-                    <span class="classifier-badge">${classification.sides}</span>
-                    <span class="classifier-badge">${classification.angles}</span>
-                </div>
-            `;
-                }
-
-                panel.innerHTML = html;
+                promptEl.textContent = text || '';
             }
+
+
 
             updateLayers() {
                 const list = document.getElementById('layersList');
@@ -7175,7 +7079,7 @@
                                 this.updateLayers();
                             } else {
                                 this.selectedPolygon = poly;
-                                this.updateProperties();
+
                                 this.updateLayers();
                                 this.render();
                             }
@@ -7186,60 +7090,13 @@
                 });
             }
 
-            classifyTriangle(polygon) {
-                const v = polygon.vertices;
-                if (v.length !== 3) return null;
 
-                // Calculate side lengths
-                const sides = [
-                    this.distance(v[0], v[1]),
-                    this.distance(v[1], v[2]),
-                    this.distance(v[2], v[0])
-                ];
-
-                // Classify by sides
-                let sideType;
-                const tolerance = 1;
-                if (Math.abs(sides[0] - sides[1]) < tolerance &&
-                    Math.abs(sides[1] - sides[2]) < tolerance) {
-                    sideType = 'Equilateral';
-                } else if (Math.abs(sides[0] - sides[1]) < tolerance ||
-                    Math.abs(sides[1] - sides[2]) < tolerance ||
-                    Math.abs(sides[0] - sides[2]) < tolerance) {
-                    sideType = 'Isosceles';
-                } else {
-                    sideType = 'Scalene';
-                }
-
-                // Calculate angles
-                const angles = [];
-                for (let i = 0; i < 3; i++) {
-                    const v1 = v[i];
-                    const v2 = v[(i + 1) % 3];
-                    const v3 = v[(i + 2) % 3];
-
-                    const a = this.distance(v2, v3);
-                    const b = this.distance(v1, v3);
-                    const c = this.distance(v1, v2);
-
-                    const angle = Math.acos((b * b + c * c - a * a) / (2 * b * c)) * 180 / Math.PI;
-                    angles.push(angle);
-                }
-
-                // Classify by angles
-                let angleType;
-                if (angles.some(a => Math.abs(a - 90) < 1)) {
-                    angleType = 'Right';
-                } else if (angles.some(a => a > 90)) {
-                    angleType = 'Obtuse';
-                } else {
-                    angleType = 'Acute';
-                }
-
-                return { sides: sideType, angles: angleType };
-            }
 
             isSplitValid(p1, p2) {
+                if (!p1 || !p2) {
+                    return false;
+                }
+
                 const cacheKey = [
                     Math.round(p1.x * 10), Math.round(p1.y * 10),
                     Math.round(p2.x * 10), Math.round(p2.y * 10),
@@ -7358,7 +7215,7 @@
                 const removedSample = this.pruneSamplePolygonForGame();
                 if (removedSample) {
                     this.updateLayers();
-                    this.updateProperties();
+
                 }
                 this.updateGridSnapControlLabel();
 
@@ -8902,7 +8759,7 @@
 
                             this.selectedPolygon = null;
                             this.saveHistory();
-                            this.updateProperties();
+
                             this.updateLayers();
                             this.render();
                         } catch (error) {
@@ -9162,26 +9019,10 @@
                 // let leftToggle = document.getElementById('mobileMenuLeft');
                 // if (leftToggle) leftToggle.remove(); 
 
-                // Right sidebar toggle (Visualizers)
-
-                let rightToggle = document.getElementById('mobileMenuRight');
-                if (!rightToggle) {
-                    rightToggle = document.createElement('button');
-                    rightToggle.id = 'mobileMenuRight';
-                    rightToggle.className = 'mobile-menu-toggle';
-                    rightToggle.innerHTML = '👁️';
-                    rightToggle.setAttribute('aria-label', 'Toggle Visualizers Panel');
-                    rightToggle.style.right = '12px';
-                    rightToggle.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        const sidebar = document.querySelector('.sidebar-right');
-                        if (sidebar) toggleMobileSidebar(sidebar);
-                    });
-                    canvasContainer.appendChild(rightToggle);
-                }
-                // Update position
-                rightToggle.style.top = `${topOffset}px`;
+                // Right sidebar toggle (Visualizers) - REMOVED per user request
+                // Also remove any previously injected button from earlier versions.
+                const existingRightToggle = document.getElementById('mobileMenuRight');
+                if (existingRightToggle) existingRightToggle.remove();
             } else {
                 // Remove mobile menu buttons on desktop
                 const leftToggle = document.getElementById('mobileMenuLeft');

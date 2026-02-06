@@ -10,6 +10,7 @@ class ModalSystem {
         this.activeResolve = null;
         this.isClosing = false;
         this.initialized = false;
+        this.openedAt = 0;
     }
 
     _log(msg) {
@@ -184,6 +185,11 @@ class ModalSystem {
         // Prevent clicks on overlay background from propagating
         this.overlay.addEventListener('click', (e) => {
             if (e.target === this.overlay) {
+                // Prevent instant close from click-through right after opening.
+                if (Date.now() - this.openedAt < 300) {
+                    this._log('Backdrop click ignored during open cooldown');
+                    return;
+                }
                 this._log('Backdrop clicked - closing');
                 this.close(false);
             }
@@ -297,6 +303,7 @@ class ModalSystem {
             this.overlay.style.visibility = 'visible';
             this.overlay.style.zIndex = '999999';
             this.overlay.style.pointerEvents = 'auto';
+            this.openedAt = Date.now();
             
             // Force reflow
             this.overlay.offsetHeight;

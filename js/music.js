@@ -93,6 +93,23 @@
         };
 
         /**
+         * Restart background music from the beginning
+         */
+        const restartBackgroundMusic = () => {
+            if (!initMusic()) return;
+            isFading = false;
+
+            try {
+                music.pause();
+            } catch (_) {}
+
+            music.currentTime = 0;
+            music.volume = 1.0;
+            music.play().catch(() => setupInteractionListener());
+            log('Background music restarted from beginning');
+        };
+
+        /**
          * Immediately stop music without fade
          */
         const stopBackgroundMusicImmediate = () => {
@@ -230,6 +247,7 @@
         window.stopBackgroundMusic = fadeOutAndStop;          // Legacy (fire-and-forget)
         window.fadeOutBackgroundMusic = fadeOutMusic;         // Promise-based fade
         window.playBackgroundMusic = playBackgroundMusic;     // Resume/start music
+        window.restartBackgroundMusic = restartBackgroundMusic; // Restart from beginning
         window.stopMusicImmediate = stopBackgroundMusicImmediate; // Instant stop
         window.isMusicPlaying = isMusicPlaying;               // Check playing state
         window.isMusicFading = isMusicFading;                 // Check fading state

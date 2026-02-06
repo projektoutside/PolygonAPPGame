@@ -141,8 +141,7 @@ class NeonBackground {
 
         this.canvas.width = this.logicalWidth * dpr;
         this.canvas.height = this.logicalHeight * dpr;
-        this.canvas.style.width = `${this.logicalWidth}px`;
-        this.canvas.style.height = `${this.logicalHeight}px`;
+        // Canvas style width/height handled by CSS (100%) to match container perfectly
 
         // Reset transform before scaling to avoid cumulative scale growth on resize.
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);

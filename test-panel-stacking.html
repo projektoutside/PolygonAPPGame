@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Stacking Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        /* Exact same CSS as production */
+        .bottom-center-ui {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+            z-index: 1000;
+            pointer-events: none;
+            width: max-content;
+
+            /* Debug border */
+            border: 2px dashed yellow;
+            padding: 10px;
+        }
+
+        .game-controls {
+            position: relative;
+            display: flex;
+            gap: 12px;
+            background: rgba(255, 100, 100, 0.9);
+            padding: 16px 24px;
+            border-radius: 16px;
+            border: 3px solid red;
+            pointer-events: auto;
+            z-index: 2;
+            font-weight: bold;
+            color: white;
+        }
+
+        .viewport-controls {
+            position: relative;
+            display: flex;
+            gap: 12px;
+            background: rgba(100, 100, 255, 0.9);
+            padding: 16px 24px;
+            border-radius: 16px;
+            border: 3px solid blue;
+            pointer-events: auto;
+            z-index: 1;
+            font-weight: bold;
+            color: white;
+        }
+
+        .label {
+            position: fixed;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+
+        .label.top {
+            top: 20px;
+        }
+
+        .label.bottom {
+            bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="label top">↑ TOP OF SCREEN</div>
+    <div class="label bottom">↓ BOTTOM OF SCREEN (24px up from here is container anchor)</div>
+
+    <!-- Exact same structure as production -->
+    <div class="bottom-center-ui">
+        <!-- 1st child - should appear HIGHER UP -->
+        <div class="game-controls">
+            🎮 GAME CONTROLS (Should be ABOVE) - Red Border
+        </div>
+
+        <!-- 2nd child - should appear LOWER DOWN -->
+        <div class="viewport-controls">
+            🎯 VIEWPORT CONTROLS (Should be BELOW) - Blue Border
+        </div>
+    </div>
+
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                background: rgba(255,255,255,0.95); padding: 20px; border-radius: 12px;
+                max-width: 600px; text-align: center; font-family: sans-serif;">
+        <h2>Panel Stacking Test</h2>
+        <p><strong>EXPECTED RESULT:</strong></p>
+        <ul style="text-align: left;">
+            <li>🎮 <span style="color: red;">RED Game Controls</span> should be HIGHER UP (further from bottom)</li>
+            <li>🎯 <span style="color: blue;">BLUE Viewport Controls</span> should be LOWER DOWN (closer to bottom at
+                24px)</li>
+            <li>32px gap between them (yellow container shows this)</li>
+        </ul>
+        <p style="margin-top: 20px; padding: 10px; background: #fff3cd; border-radius: 6px;">
+            <strong>If Game Controls are BELOW Viewport Controls, the fix failed!</strong>
+        </p>
+    </div>
+</body>
+
+</html>

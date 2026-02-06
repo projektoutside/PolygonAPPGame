@@ -34,6 +34,10 @@ class Game {
         this.state = GameState.PLAYING;
         // Hide Main Menu
         if (MainMenu) MainMenu.hide();
+
+        // Ensure canvas/layout are fully recalculated after mode switch.
+        // This fixes initial off-center rendering that only corrected after a manual resize (e.g. F12 toggle).
+        this.stabilizeCanvasLayout();
     }
 
     stop() {
@@ -87,6 +91,29 @@ class Game {
 
         // Hide Dev Panel if open
         if (this.devManager) this.devManager.hide();
+
+        // Re-sync canvas after restoring non-game UI panels.
+        this.stabilizeCanvasLayout();
+    }
+
+    stabilizeCanvasLayout() {
+        if (!this.app) return;
+
+        const runResizeSync = () => {
+            if (!this.app) return;
+            this.app.resizeCanvas();
+            this.app.render(true);
+        };
+
+        // Run several passes because flex/layout changes can settle over multiple frames
+        // on some Windows/browser DPI combinations.
+        runResizeSync();
+        requestAnimationFrame(() => {
+            runResizeSync();
+            requestAnimationFrame(runResizeSync);
+        });
+        setTimeout(runResizeSync, 120);
+        setTimeout(runResizeSync, 260);
     }
 
     toggleUI(active) {
@@ -113,15 +140,16 @@ class Game {
             });
         });
 
-        const propPanel = document.getElementById('bottomPropertiesPanel');
-        if (propPanel && active) {
-            propPanel.style.display = 'flex';
-        }
+
 
         const controls = document.getElementById('gameControls');
         if (controls) {
             controls.style.display = active ? 'flex' : 'none';
         }
+
+        // Force a full canvas/layout sync whenever major panels are shown/hidden.
+        // This prevents the viewport from starting shifted until a manual resize occurs.
+        this.stabilizeCanvasLayout();
     }
 
     loadLevels(levels) {
@@ -212,6 +240,108 @@ class BeginnerMode {
         return this.game && this.game.currentMode === this && this.game.state === GameState.PLAYING;
     }
 
+    getStorageAdapter() {
+        if (window.SafeStorage && typeof window.SafeStorage.getItem === 'function') {
+            return window.SafeStorage;
+        }
+        return window.localStorage;
+    }
+
+    storageGetItem(key) {
+        try {
+            return this.getStorageAdapter().getItem(key);
+        } catch (error) {
+            console.warn('Storage read failed for key:', key, error);
+            return null;
+        }
+    }
+
+    storageSetItem(key, value) {
+        try {
+            this.getStorageAdapter().setItem(key, value);
+            return true;
+        } catch (error) {
+            console.warn('Storage write failed for key:', key, error);
+            return false;
+        }
+    }
+
+    storageRemoveItem(key) {
+        try {
+            this.getStorageAdapter().removeItem(key);
+            return true;
+        } catch (error) {
+            console.warn('Storage remove failed for key:', key, error);
+            return false;
+        }
+    }
+
+    safeParseJSON(raw, label) {
+        if (!raw) return null;
+        try {
+            return JSON.parse(raw);
+        } catch (error) {
+            console.warn(`Failed to parse ${label}`, error);
+            return null;
+        }
+    }
+
+    sanitizeAppState(state) {
+        if (!state || typeof state !== 'object') return null;
+        const polygons = Array.isArray(state.polygons)
+            ? state.polygons.map(poly => {
+                const rawVertices = Array.isArray(poly?.vertices) ? poly.vertices : [];
+                const vertices = rawVertices
+                    .map(v => ({ x: Number(v?.x), y: Number(v?.y) }))
+                    .filter(v => Number.isFinite(v.x) && Number.isFinite(v.y));
+                if (vertices.length < 3) return null;
+                return {
+                    vertices,
+                    color: typeof poly?.color === 'string' && poly.color ? poly.color : '#667eea',
+                    name: typeof poly?.name === 'string' && poly.name ? poly.name : 'Polygon',
+                    visible: poly?.visible !== false
+                };
+            }).filter(Boolean)
+            : [];
+
+        if (polygons.length === 0) return null;
+
+        const pan = state.pan && Number.isFinite(Number(state.pan.x)) && Number.isFinite(Number(state.pan.y))
+            ? { x: Number(state.pan.x), y: Number(state.pan.y) }
+            : { x: 0, y: 0 };
+        const zoom = Number(state.zoom);
+
+        return {
+            polygons,
+            history: Array.isArray(state.history) ? [...state.history] : [],
+            historyIndex: Number.isFinite(Number(state.historyIndex)) ? Number(state.historyIndex) : null,
+            pan,
+            zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1
+        };
+    }
+
+    sanitizeSlotData(slotData) {
+        if (!slotData || typeof slotData !== 'object') return null;
+        const appState = this.sanitizeAppState(slotData.appState);
+        if (!appState) return null;
+        const levelIndex = Number(slotData.levelIndex);
+        const linesUsed = Number(slotData.linesUsed);
+
+        return {
+            version: Number.isFinite(Number(slotData.version)) ? Number(slotData.version) : 1,
+            savedAt: Number.isFinite(Number(slotData.savedAt)) ? Number(slotData.savedAt) : null,
+            autoSavedAt: Number.isFinite(Number(slotData.autoSavedAt)) ? Number(slotData.autoSavedAt) : null,
+            levelIndex: Number.isFinite(levelIndex) ? Math.max(0, Math.floor(levelIndex)) : 0,
+            linesUsed: Number.isFinite(linesUsed) ? Math.max(0, Math.floor(linesUsed)) : 0,
+            lineHistory: Array.isArray(slotData.lineHistory) ? [...slotData.lineHistory] : [],
+            redoLineHistory: Array.isArray(slotData.redoLineHistory) ? [...slotData.redoLineHistory] : [],
+            gridFreeMode: !!slotData.gridFreeMode,
+            stars: this.normalizeStars(slotData.stars),
+            appState,
+            lastResult: slotData.lastResult || null
+        };
+    }
+
     getSlotKey(slot) {
         return `polygonFunSaveSlot${slot}`;
     }
@@ -221,7 +351,7 @@ class BeginnerMode {
     }
 
     getActiveSaveSlot() {
-        const stored = parseInt(localStorage.getItem('polygonFunActiveSlot'), 10);
+        const stored = parseInt(this.storageGetItem('polygonFunActiveSlot'), 10);
         if (!Number.isFinite(stored) || stored < 1 || stored > this.saveSlotCount) {
             return 1;
         }
@@ -231,7 +361,7 @@ class BeginnerMode {
     setActiveSaveSlot(slot) {
         const normalized = Math.min(this.saveSlotCount, Math.max(1, slot));
         this.activeSaveSlot = normalized;
-        localStorage.setItem('polygonFunActiveSlot', `${normalized}`);
+        this.storageSetItem('polygonFunActiveSlot', `${normalized}`);
         this.starRatings = this.getSlotStars(normalized);
         this.refreshBoxScoreUI();
     }
@@ -323,28 +453,23 @@ class BeginnerMode {
 
     getSlotData(slot) {
         const key = this.getSlotKey(slot);
-        const raw = localStorage.getItem(key);
+        const raw = this.storageGetItem(key);
         if (!raw) return null;
-        try {
-            const parsed = JSON.parse(raw);
-            return parsed && typeof parsed === 'object' ? parsed : null;
-        } catch (error) {
-            console.warn('Failed to parse save slot data', error);
+        const parsed = this.safeParseJSON(raw, `save slot ${slot}`);
+        const sanitized = this.sanitizeSlotData(parsed);
+        if (!sanitized) {
+            console.warn(`Discarding invalid/corrupt save slot ${slot}`);
             return null;
         }
+        return sanitized;
     }
 
     getStoredStars(slot) {
         const key = this.getStarKey(slot);
-        const raw = localStorage.getItem(key);
+        const raw = this.storageGetItem(key);
         if (!raw) return null;
-        try {
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : null;
-        } catch (error) {
-            console.warn('Failed to parse stored stars data', error);
-            return null;
-        }
+        const parsed = this.safeParseJSON(raw, `stars slot ${slot}`);
+        return Array.isArray(parsed) ? parsed : null;
     }
 
     getSlotStars(slot) {
@@ -366,12 +491,12 @@ class BeginnerMode {
 
     saveSlotData(slot, data) {
         const key = this.getSlotKey(slot);
-        localStorage.setItem(key, JSON.stringify(data));
+        return this.storageSetItem(key, JSON.stringify(data));
     }
 
     saveStars(slot, stars) {
         const key = this.getStarKey(slot);
-        localStorage.setItem(key, JSON.stringify(this.normalizeStars(stars)));
+        return this.storageSetItem(key, JSON.stringify(this.normalizeStars(stars)));
     }
 
     captureAppState() {
@@ -392,35 +517,35 @@ class BeginnerMode {
 
     applyAppState(state) {
         if (!this.app || !state) return false;
-        if (!Array.isArray(state.polygons) || state.polygons.length === 0) {
+        const safeState = this.sanitizeAppState(state);
+        if (!safeState) {
             return false;
         }
 
-        this.app.polygons = state.polygons.map(p => {
+        this.app.polygons = safeState.polygons.map(p => {
             const poly = new Polygon(p.vertices || [], p.color || '#667eea');
             poly.name = p.name || 'Polygon';
             poly.visible = p.visible !== false;
             return poly;
         }).filter(p => p.vertices.length >= 3);
 
-        this.app.history = Array.isArray(state.history) ? [...state.history] : [];
-        if (Number.isFinite(state.historyIndex)) {
-            this.app.historyIndex = state.historyIndex;
+        this.app.history = Array.isArray(safeState.history) ? [...safeState.history] : [];
+        if (Number.isFinite(safeState.historyIndex)) {
+            this.app.historyIndex = Math.max(-1, Math.min(this.app.history.length - 1, safeState.historyIndex));
         } else {
             this.app.historyIndex = this.app.history.length - 1;
         }
 
-        if (state.pan && Number.isFinite(state.pan.x) && Number.isFinite(state.pan.y)) {
-            this.app.pan = { x: state.pan.x, y: state.pan.y };
+        if (safeState.pan && Number.isFinite(safeState.pan.x) && Number.isFinite(safeState.pan.y)) {
+            this.app.pan = { x: safeState.pan.x, y: safeState.pan.y };
         }
-        if (Number.isFinite(state.zoom)) {
-            this.app.zoom = state.zoom;
+        if (Number.isFinite(safeState.zoom)) {
+            this.app.zoom = safeState.zoom;
         }
 
         this.app.selectedPolygon = null;
         this.app.selectedVertex = null;
         this.app.updateLayers();
-        this.app.updateProperties();
         this.app.render(true);
         return true;
     }
@@ -475,13 +600,14 @@ class BeginnerMode {
     }
 
     restoreFromSlotData(slotData) {
-        if (!slotData || !this.game || !Array.isArray(this.game.levels)) {
+        const safeSlotData = this.sanitizeSlotData(slotData);
+        if (!safeSlotData || !this.game || !Array.isArray(this.game.levels)) {
             return false;
         }
 
         const levelIndex = Math.min(
             this.game.levels.length - 1,
-            Math.max(0, Number(slotData.levelIndex || 0))
+            Math.max(0, Number(safeSlotData.levelIndex || 0))
         );
 
         this.currentLevelIndex = levelIndex;
@@ -490,19 +616,19 @@ class BeginnerMode {
             return false;
         }
 
-        this.linesUsed = Number(slotData.linesUsed || 0);
-        this.lineHistory = Array.isArray(slotData.lineHistory) ? [...slotData.lineHistory] : [];
-        this.redoLineHistory = Array.isArray(slotData.redoLineHistory) ? [...slotData.redoLineHistory] : [];
+        this.linesUsed = Number(safeSlotData.linesUsed || 0);
+        this.lineHistory = Array.isArray(safeSlotData.lineHistory) ? [...safeSlotData.lineHistory] : [];
+        this.redoLineHistory = Array.isArray(safeSlotData.redoLineHistory) ? [...safeSlotData.redoLineHistory] : [];
         this.maxLines = this.levelData.maxLines || 99;
         this.targetPieces = this.levelData.targetPieces;
         this.lastResult = null;
         this.hideResultsOverlay();
         this.hideSkipButton();
 
-        this.gridFreeMode = !!slotData.gridFreeMode;
+        this.gridFreeMode = !!safeSlotData.gridFreeMode;
         this.app.gridSnap = !this.gridFreeMode;
 
-        const restored = this.applyAppState(slotData.appState);
+        const restored = this.applyAppState(safeSlotData.appState);
         if (!restored) {
             this.setupLevel();
         }
@@ -542,8 +668,14 @@ class BeginnerMode {
             appState: this.captureAppState(),
             lastResult: existing.lastResult || null
         };
-        this.saveSlotData(normalizedSlot, payload);
-        this.saveStars(normalizedSlot, mergedStars);
+        const saveOk = this.saveSlotData(normalizedSlot, payload);
+        const starsOk = this.saveStars(normalizedSlot, mergedStars);
+        if (!saveOk || !starsOk) {
+            if (this.app && typeof this.app.showToast === 'function') {
+                this.app.showToast('Save failed. Storage may be unavailable.', true);
+            }
+            return;
+        }
         this.starRatings = mergedStars;
         if (!silent && this.app && typeof this.app.showToast === 'function') {
             this.app.showToast(`Saved to Slot ${normalizedSlot}`);
@@ -574,8 +706,11 @@ class BeginnerMode {
             appState: this.captureAppState(),
             lastResult: existing.lastResult || null
         };
-        this.saveSlotData(normalizedSlot, payload);
-        this.saveStars(normalizedSlot, mergedStars);
+        const saveOk = this.saveSlotData(normalizedSlot, payload);
+        const starsOk = this.saveStars(normalizedSlot, mergedStars);
+        if (!saveOk || !starsOk) {
+            return;
+        }
         this.starRatings = mergedStars;
         this.refreshBoxScoreUI();
         this.updateHUD();
@@ -604,7 +739,13 @@ class BeginnerMode {
 
         this.setActiveSaveSlot(normalizedSlot);
         this.starRatings = this.getSlotStars(normalizedSlot);
-        this.restoreFromSlotData(slotData);
+        const restored = this.restoreFromSlotData(slotData);
+        if (!restored) {
+            if (this.app && typeof this.app.showToast === 'function') {
+                this.app.showToast(`Slot ${normalizedSlot} is invalid or corrupted.`, true);
+            }
+            return;
+        }
 
         if (this.app && typeof this.app.showToast === 'function') {
             this.app.showToast(`Loaded Slot ${normalizedSlot}`);
@@ -614,8 +755,9 @@ class BeginnerMode {
 
     clearSlot(slot) {
         const normalizedSlot = Math.min(this.saveSlotCount, Math.max(1, slot));
-        localStorage.removeItem(this.getSlotKey(normalizedSlot));
-        localStorage.removeItem(this.getStarKey(normalizedSlot));
+        this.storageRemoveItem(this.getSlotKey(normalizedSlot));
+        this.storageRemoveItem(this.getStarKey(normalizedSlot));
+        this.storageRemoveItem(this.getSolutionKey(normalizedSlot));
         if (normalizedSlot === this.activeSaveSlot) {
             this.starRatings = this.getSlotStars(normalizedSlot);
         }
@@ -646,8 +788,48 @@ class BeginnerMode {
         return `polygonFunSolutionsSlot${slot}`;
     }
 
-    saveLevelResult(slot, levelIndex, result) {
+    sanitizeSolutionEntry(solution) {
+        if (!solution || typeof solution !== 'object') return null;
+
+        const pieces = Array.isArray(solution.pieces)
+            ? solution.pieces.map(piece => {
+                const vertices = Array.isArray(piece?.vertices)
+                    ? piece.vertices
+                        .map(v => ({ x: Number(v?.x), y: Number(v?.y) }))
+                        .filter(v => Number.isFinite(v.x) && Number.isFinite(v.y))
+                    : [];
+
+                if (vertices.length < 3) return null;
+
+                return {
+                    vertices,
+                    color: (typeof piece?.color === 'string' && piece.color) ? piece.color : '#667eea'
+                };
+            }).filter(Boolean)
+            : [];
+
+        if (!pieces.length) return null;
+
+        const rawPercents = Array.isArray(solution.percents) ? solution.percents : [];
+        const percents = rawPercents
+            .map(value => Number(value))
+            .filter(value => Number.isFinite(value));
+
+        const bestStars = Number(solution.bestStars);
+
+        return {
+            pieces,
+            percents,
+            coins: Number.isFinite(Number(solution.coins)) ? Math.max(0, Number(solution.coins)) : 0,
+            bestStars: Number.isFinite(bestStars) ? Math.max(0, Math.min(3, Math.floor(bestStars))) : 0,
+            timestamp: Number.isFinite(Number(solution.timestamp)) ? Number(solution.timestamp) : Date.now()
+        };
+    }
+
+    saveLevelResult(slot, levelIndex, result, stars = 0) {
         if (!result || !result.pieces) return;
+
+        const normalizedStars = Math.max(0, Math.min(3, Number(stars) || 0));
 
         // Serialize minimal data needed for preview
         const serializablePieces = result.pieces.map(p => ({
@@ -659,28 +841,44 @@ class BeginnerMode {
             pieces: serializablePieces,
             percents: result.piecePercents || [],
             coins: result.coins || 0,
+            bestStars: normalizedStars,
             timestamp: Date.now()
         };
 
         const key = this.getSolutionKey(slot);
         let allSolutions = {};
-        try {
-            const raw = localStorage.getItem(key);
-            if (raw) allSolutions = JSON.parse(raw);
-        } catch (e) { console.warn('Error reading solutions', e); }
+        const raw = this.storageGetItem(key);
+        const parsed = this.safeParseJSON(raw, `solutions slot ${slot}`);
+        if (parsed && typeof parsed === 'object') {
+            allSolutions = parsed;
+        }
+
+        const existing = this.sanitizeSolutionEntry(allSolutions[levelIndex]);
+
+        // Never overwrite a stored preview with a lower score.
+        if (existing && existing.bestStars > normalizedStars) {
+            return;
+        }
+
+        // If stars tie, keep existing to preserve the originally-earned best preview.
+        if (existing && existing.bestStars === normalizedStars) {
+            return;
+        }
 
         allSolutions[levelIndex] = data;
-        localStorage.setItem(key, JSON.stringify(allSolutions));
+        this.storageSetItem(key, JSON.stringify(allSolutions));
     }
 
     getLevelSolution(slot, levelIndex) {
         const key = this.getSolutionKey(slot);
-        try {
-            const raw = localStorage.getItem(key);
-            if (!raw) return null;
-            const all = JSON.parse(raw);
-            return all[levelIndex] || null;
-        } catch (e) { return null; }
+        const raw = this.storageGetItem(key);
+        const all = this.safeParseJSON(raw, `solutions slot ${slot}`);
+        if (!all || typeof all !== 'object') return null;
+
+        const sanitized = this.sanitizeSolutionEntry(all[levelIndex]);
+        if (!sanitized) return null;
+
+        return sanitized;
     }
 
     recordStarRating(stars, resultData = null) {
@@ -700,10 +898,10 @@ class BeginnerMode {
             this.saveStars(this.activeSaveSlot, this.starRatings);
         }
 
-        // Save solution if provided and it's a passing score (and better or equal to previous best)
-        // We prioritize higher stars, or newer solution if stars are same (assuming newer is what user wants to remember)
-        if (resultData && normalizedStars > 0 && normalizedStars >= previous) {
-            this.saveLevelResult(this.activeSaveSlot, levelIndex, resultData);
+        // Save preview only when the score is strictly better than previous best.
+        // This guarantees each level keeps the highest-score preview image only.
+        if (resultData && normalizedStars > 0 && normalizedStars > previous) {
+            this.saveLevelResult(this.activeSaveSlot, levelIndex, resultData, normalizedStars);
         }
 
         this.refreshBoxScoreUI();
@@ -1089,13 +1287,23 @@ class BeginnerMode {
     renderBoxScoreGrid(container, stars, unlockedIndex = -1) {
         container.innerHTML = '';
         const levels = Array.isArray(this.game.levels) ? this.game.levels : [];
+        const normalizedCurrentIndex = Number.isFinite(this.currentLevelIndex) ? this.currentLevelIndex : 0;
+        const currentLevelStars = stars[normalizedCurrentIndex] || 0;
+        let maxSelectableIndex = Math.max(-1, unlockedIndex);
+        // Progression rule: next stage is only unlocked after earning at least 1 star
+        // on the current stage.
+        if (currentLevelStars > 0) {
+            maxSelectableIndex = Math.max(maxSelectableIndex, normalizedCurrentIndex + 1);
+        }
+        maxSelectableIndex = Math.min(levels.length - 1, maxSelectableIndex);
+
         stars.forEach((value, index) => {
             const levelLabel = levels[index]
                 ? `${levels[index].name || `Level ${index + 1}`}`
                 : `Level ${index + 1}`;
             const row = document.createElement('div');
             const isCurrent = index === this.currentLevelIndex;
-            const isSelectable = index <= unlockedIndex;
+            const isSelectable = index <= maxSelectableIndex;
             row.className = `box-score-level${isSelectable ? ' selectable' : ' locked'}${isCurrent ? ' current' : ''}`;
             if (isSelectable) {
                 row.setAttribute('role', 'button');
@@ -1121,7 +1329,15 @@ class BeginnerMode {
                 <div class="box-score-stars">${starIcons}</div>
             `;
             if (isSelectable) {
-                const handleSelect = () => this.loadLevelFromBoxScore(index);
+                const handleSelect = () => {
+                    // Current level should never trigger replay/loading from Select Level.
+                    // Click only updates preview to show shape-only view.
+                    if (isCurrent) {
+                        this.renderLevelPreview(index, { forceCurrentShapeOnly: true });
+                        return;
+                    }
+                    this.loadLevelFromBoxScore(index);
+                };
                 row.addEventListener('click', handleSelect);
                 row.addEventListener('keydown', (event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -1143,7 +1359,7 @@ class BeginnerMode {
         this.renderLevelPreview(initialPreviewIndex);
     }
 
-    renderLevelPreview(index) {
+    renderLevelPreview(index, options = {}) {
         const canvas = document.getElementById('levelPreviewCanvas');
         const titleEl = document.getElementById('levelPreviewTitle');
         if (!canvas || !titleEl) return;
@@ -1152,6 +1368,7 @@ class BeginnerMode {
         if (!level) return;
 
         const isCurrentLevel = index === this.currentLevelIndex;
+        const forceCurrentShapeOnly = !!options.forceCurrentShapeOnly;
         const levelStars = (Array.isArray(this.starRatings) ? (this.starRatings[index] || 0) : 0);
         const isLevelSolved = levelStars > 0;
 
@@ -1175,6 +1392,53 @@ class BeginnerMode {
         }
 
         ctx.clearRect(0, 0, width, height);
+
+        // Explicit current-level click behavior: show only the shape silhouette,
+        // with no grid, no outlines, no vertices, and no percentage labels.
+        if (isCurrentLevel && forceCurrentShapeOnly) {
+            titleEl.textContent = `Level ${index + 1} Current Shape`;
+
+            const shapeVertices = Array.isArray(level.startShapeVertices) ? level.startShapeVertices : [];
+            if (shapeVertices.length < 3) {
+                return;
+            }
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            shapeVertices.forEach(v => {
+                minX = Math.min(minX, v.x);
+                minY = Math.min(minY, v.y);
+                maxX = Math.max(maxX, v.x);
+                maxY = Math.max(maxY, v.y);
+            });
+
+            const polyWidth = maxX - minX;
+            const polyHeight = maxY - minY;
+            const scaleX = (width * 0.72) / (polyWidth || 1);
+            const scaleY = (height * 0.72) / (polyHeight || 1);
+            const scale = Math.min(scaleX, scaleY);
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const polyCenterX = (minX + maxX) / 2;
+            const polyCenterY = (minY + maxY) / 2;
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.scale(scale, scale);
+            ctx.translate(-polyCenterX, -polyCenterY);
+
+            ctx.beginPath();
+            ctx.moveTo(shapeVertices[0].x, shapeVertices[0].y);
+            for (let i = 1; i < shapeVertices.length; i++) {
+                ctx.lineTo(shapeVertices[i].x, shapeVertices[i].y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = level.color || '#667eea';
+            ctx.fill();
+
+            ctx.restore();
+            return;
+        }
 
         // IMPORTANT: In Select Level, only show the player's saved last-success image.
         // Do NOT show level preview / target shape when no saved success exists.
@@ -1319,13 +1583,6 @@ class BeginnerMode {
 
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            let fontSize = 24 / scale;
-            if (fontSize < 12) fontSize = 12;
-            if (fontSize > 100) fontSize = 100;
-
-            ctx.font = `800 ${fontSize}px "Inter", sans-serif`;
-            ctx.lineWidth = 2.5 / scale;
-
             labels.forEach(lbl => {
                 let center = { x: 0, y: 0 };
                 if (typeof Geometry !== 'undefined' && Geometry.getPolygonCenter) {
@@ -1336,23 +1593,50 @@ class BeginnerMode {
                     center = { x: sumX / lbl.vertices.length, y: sumY / lbl.vertices.length };
                 }
 
+                let pieceMinX = Infinity;
+                let pieceMinY = Infinity;
+                let pieceMaxX = -Infinity;
+                let pieceMaxY = -Infinity;
+                lbl.vertices.forEach(v => {
+                    pieceMinX = Math.min(pieceMinX, v.x);
+                    pieceMinY = Math.min(pieceMinY, v.y);
+                    pieceMaxX = Math.max(pieceMaxX, v.x);
+                    pieceMaxY = Math.max(pieceMaxY, v.y);
+                });
+
+                const pieceWidth = Math.max(1e-6, pieceMaxX - pieceMinX);
+                const pieceHeight = Math.max(1e-6, pieceMaxY - pieceMinY);
+                const pieceMinDimension = Math.max(1e-6, Math.min(pieceWidth, pieceHeight));
+
+                let fontSize = 16 / scale;
+                const minFont = 9 / scale;
+                const maxFontByPiece = pieceMinDimension * 0.38;
+                fontSize = Math.max(minFont, Math.min(fontSize, maxFontByPiece));
+                if (!Number.isFinite(fontSize) || fontSize <= 0) return;
+
+                // If the shape is too small to hold readable text, skip label.
+                if (fontSize < 7 / scale) return;
+
+                ctx.font = `600 ${fontSize}px "Inter", sans-serif`;
+                ctx.lineWidth = 1.8 / scale;
+
                 const metrics = ctx.measureText(lbl.text);
-                const paddingX = 10 / scale;
-                const paddingY = 6 / scale;
+                const paddingX = 6 / scale;
+                const paddingY = 4 / scale;
                 const boxWidth = metrics.width + paddingX * 2;
                 const boxHeight = fontSize + paddingY * 2;
                 const boxX = center.x - boxWidth / 2;
                 const boxY = center.y - boxHeight / 2;
 
                 ctx.save();
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
-                drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 8 / scale);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+                ctx.strokeStyle = 'rgba(15, 23, 42, 0.32)';
+                drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 7 / scale);
                 ctx.fill();
                 ctx.stroke();
                 ctx.restore();
 
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
                 ctx.strokeText(lbl.text, center.x, center.y);
                 ctx.fillStyle = '#0f172a';
                 ctx.fillText(lbl.text, center.x, center.y);
@@ -1371,7 +1655,7 @@ class BeginnerMode {
         overlay.id = 'safetyPopup';
         overlay.style.cssText = `
             position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(4px); z-index: 10000;
+            backdrop-filter: blur(4px); z-index: 2147483647;
             display: flex; align-items: center; justify-content: center;
             font-family: 'Inter', system-ui, sans-serif;
             animation: fadeIn 0.2s ease-out;
@@ -1381,6 +1665,7 @@ class BeginnerMode {
         card.style.cssText = `
             background: white; width: 90%; max-width: 400px;
             border-radius: 20px; padding: 24px;
+            position: relative; z-index: 2147483647;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             text-align: center;
         `;
@@ -1437,30 +1722,52 @@ class BeginnerMode {
     }
 
     loadLevelFromBoxScore(index) {
-        if (!Number.isFinite(index)) return;
+        const levelCount = Array.isArray(this.game?.levels) ? this.game.levels.length : 0;
+        const normalizedIndex = Number.isFinite(Number(index)) ? Math.floor(Number(index)) : -1;
+        if (normalizedIndex < 0 || normalizedIndex >= levelCount) return;
+
+        const stars = this.normalizeStars(this.starRatings.length ? this.starRatings : this.getSlotStars(this.activeSaveSlot));
+        const currentIndex = Number.isFinite(this.currentLevelIndex) ? this.currentLevelIndex : 0;
+        const currentStars = stars[currentIndex] || 0;
+        const slotData = this.getSlotData(this.activeSaveSlot);
+        const slotLevelIndex = Number.isFinite(slotData?.levelIndex) ? slotData.levelIndex : 0;
+        const lastStarIndex = stars.reduce((acc, value, idx) => (value > 0 ? idx : acc), -1);
+        let maxSelectableIndex = Math.max(slotLevelIndex, lastStarIndex);
+        if (currentStars > 0) {
+            maxSelectableIndex = Math.max(maxSelectableIndex, currentIndex + 1);
+        }
+        maxSelectableIndex = Math.min(levelCount - 1, maxSelectableIndex);
+
+        if (normalizedIndex > maxSelectableIndex) {
+            if (this.app && typeof this.app.showToast === 'function') {
+                this.app.showToast('Beat the current level with at least 1 star to unlock the next stage.', true);
+            }
+            return;
+        }
+
+        // Never allow Select Level to replay/load the currently active level.
+        // Keep action to preview-only behavior handled by the grid click handler.
+        if (normalizedIndex === this.currentLevelIndex) {
+            return;
+        }
 
         const proceed = () => {
             if (this.game.state !== GameState.PLAYING) {
                 this.game.startMode('beginner');
             }
-            if (index < 0 || index >= this.game.levels.length) return;
+            if (normalizedIndex < 0 || normalizedIndex >= this.game.levels.length) return;
             this.closeBoxScore();
-            this.loadLevel(index);
+            this.loadLevel(normalizedIndex);
             if (this.app && typeof this.app.showToast === 'function') {
-                this.app.showToast(`Replaying Level ${index + 1}`);
+                this.app.showToast(`Replaying Level ${normalizedIndex + 1}`);
             }
         };
 
-        // Safety Check: If level is already completed (has stars), confirm first
-        const stars = this.starRatings[index] || 0;
-        if (stars > 0) {
-            this.showSafetyPopup(
-                "You have already completed this level. Do you want to replay it?",
-                proceed
-            );
-        } else {
-            proceed();
-        }
+        // Always confirm level switching from Select Level for safety/intentional replay.
+        this.showSafetyPopup(
+            `Do you want to replay Level ${normalizedIndex + 1}?`,
+            proceed
+        );
     }
 
     loadLevel(index) {
@@ -1533,17 +1840,12 @@ class BeginnerMode {
         this.app.splitLineStart = null;
         this.app.splitLineEnd = null;
 
+
         this.app.gridSnap = !this.gridFreeMode;
 
-        // Show prompt only for the first level
-        if (this.currentLevelIndex === 0) {
-            this.app.updateSplitPrompt("Draw a line across shapes to split them.");
-        } else {
-            this.app.updateSplitPrompt("");
-        }
-
         this.updateGameControlButtons();
-        this.app.updateProperties(startShape);
+
+
     }
 
     handleSlice(newPolygons) {
@@ -1715,9 +2017,9 @@ class BeginnerMode {
                 box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
                 display: flex;
                 flex-direction: column;
-                gap: 10px;
+                gap: 6px;
                 pointer-events: auto;
-                min-width: 200px;
+                min-width: 150px;
             `;
             hud.appendChild(rightSide);
 
@@ -1818,7 +2120,9 @@ class BeginnerMode {
                 menuOverlay.classList.remove('hidden');
             }
 
-            if (typeof window.playBackgroundMusic === 'function') {
+            if (typeof window.restartBackgroundMusic === 'function') {
+                window.restartBackgroundMusic();
+            } else if (typeof window.playBackgroundMusic === 'function') {
                 window.playBackgroundMusic();
             }
         });
@@ -1831,8 +2135,13 @@ class BeginnerMode {
         const redoBtn = document.getElementById('gameRedoBtn');
         const submitBtn = document.getElementById('gameSubmitBtn');
 
-        if (undoBtn) undoBtn.disabled = this.lineHistory.length === 0;
-        if (redoBtn) redoBtn.disabled = this.redoLineHistory.length === 0;
+        const appHistory = Array.isArray(this.app?.history) ? this.app.history : [];
+        const appHistoryIndex = Number.isFinite(this.app?.historyIndex) ? this.app.historyIndex : -1;
+        const canUndo = appHistoryIndex > 0;
+        const canRedo = appHistoryIndex >= 0 && appHistoryIndex < appHistory.length - 1;
+
+        if (undoBtn) undoBtn.disabled = !canUndo;
+        if (redoBtn) redoBtn.disabled = !canRedo;
 
         if (submitBtn) {
             const linesRequirementMet = this.linesUsed >= this.maxLines;
@@ -1851,13 +2160,20 @@ class BeginnerMode {
     }
 
     handleUndo() {
-        if (this.lineHistory.length === 0) return;
+        const canUndo = Number.isFinite(this.app?.historyIndex) && this.app.historyIndex > 0;
+        if (!canUndo) return;
+
         const previousIndex = this.app.historyIndex;
         this.app.undo();
 
         if (this.app.historyIndex < previousIndex) {
-            this.redoLineHistory.push(this.lineHistory.pop());
-            this.linesUsed = this.lineHistory.length;
+            const movedLine = this.lineHistory.pop() || {
+                linesUsed: Math.max(0, this.linesUsed - 1),
+                timestamp: Date.now(),
+                synthetic: true
+            };
+            this.redoLineHistory.push(movedLine);
+            this.linesUsed = Math.max(0, this.linesUsed - 1);
             this.updateHUD();
             this.updateGameControlButtons();
             this.autosaveProgress();
@@ -1865,13 +2181,21 @@ class BeginnerMode {
     }
 
     handleRedo() {
-        if (this.redoLineHistory.length === 0) return;
+        const appHistory = Array.isArray(this.app?.history) ? this.app.history : [];
+        const canRedo = Number.isFinite(this.app?.historyIndex) && this.app.historyIndex < appHistory.length - 1;
+        if (!canRedo) return;
+
         const previousIndex = this.app.historyIndex;
         this.app.redo();
 
         if (this.app.historyIndex > previousIndex) {
-            this.lineHistory.push(this.redoLineHistory.pop());
-            this.linesUsed = this.lineHistory.length;
+            const restoredLine = this.redoLineHistory.pop() || {
+                linesUsed: this.linesUsed + 1,
+                timestamp: Date.now(),
+                synthetic: true
+            };
+            this.lineHistory.push(restoredLine);
+            this.linesUsed = this.linesUsed + 1;
             this.updateHUD();
             this.updateGameControlButtons();
             this.autosaveProgress();
