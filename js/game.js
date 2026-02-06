@@ -2009,17 +2009,11 @@ class BeginnerMode {
             const rightSide = document.createElement('div');
             rightSide.id = 'gameHUD_Stats';
             rightSide.style.cssText = `
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(8px);
-                padding: 16px 20px;
-                border-radius: 16px;
-                border: 1px solid rgba(226, 232, 240, 0.9);
-                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
                 display: flex;
                 flex-direction: column;
-                gap: 6px;
+                gap: 10px;
                 pointer-events: auto;
-                min-width: 150px;
+                min-width: 170px;
             `;
             hud.appendChild(rightSide);
 
@@ -2036,14 +2030,46 @@ class BeginnerMode {
         const rightSide = document.getElementById('gameHUD_Stats');
         if (rightSide) {
             rightSide.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; font-family: 'Inter', sans-serif;">
-                    <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Lines</span>
-                    <span style="font-size: 16px; font-weight: 800; color: ${this.linesUsed > this.maxLines ? '#e11d48' : '#0f172a'}">${this.linesUsed} <span style="color: #94a3b8; font-weight: 600;">/</span> ${this.maxLines}</span>
+                <div style="
+                    background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(8px);
+                    padding: 16px 20px;
+                    border-radius: 16px;
+                    border: 1px solid rgba(226, 232, 240, 0.9);
+                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; font-family: 'Inter', sans-serif;">
+                        <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Lines</span>
+                        <span style="font-size: 16px; font-weight: 800; color: ${this.linesUsed > this.maxLines ? '#e11d48' : '#0f172a'}">${this.linesUsed} <span style="color: #94a3b8; font-weight: 600;">/</span> ${this.maxLines}</span>
+                    </div>
+                    <div style="width: 100%; height: 1px; background: #e2e8f0;"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; font-family: 'Inter', sans-serif;">
+                        <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Pieces</span>
+                        <span style="font-size: 16px; font-weight: 800; color: ${piecesCount !== this.targetPieces ? '#0f172a' : '#16a34a'}">${piecesCount} <span style="color: #94a3b8; font-weight: 600;">/</span> ${this.targetPieces}</span>
+                    </div>
                 </div>
-                <div style="width: 100%; height: 1px; background: #e2e8f0;"></div>
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; font-family: 'Inter', sans-serif;">
-                    <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Pieces</span>
-                    <span style="font-size: 16px; font-weight: 800; color: ${piecesCount !== this.targetPieces ? '#0f172a' : '#16a34a'}">${piecesCount} <span style="color: #94a3b8; font-weight: 600;">/</span> ${this.targetPieces}</span>
+
+                <div style="
+                    background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(8px);
+                    padding: 12px 16px;
+                    border-radius: 14px;
+                    border: 1px solid rgba(226, 232, 240, 0.9);
+                    box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.08), 0 3px 5px -2px rgba(0, 0, 0, 0.05);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 16px;
+                    font-family: 'Inter', sans-serif;
+                ">
+                    <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Grid Snap</span>
+                    <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                        <input type="checkbox" id="gameGridSnapToggle" style="width: 16px; height: 16px; cursor: pointer; accent-color: #3b82f6;">
+                        <span id="gameGridSnapLabel" style="font-size: 13px; font-weight: 700; color: #0f172a; min-width: 24px; text-align: right;">On</span>
+                    </label>
                 </div>
             `;
         }
@@ -2055,26 +2081,31 @@ class BeginnerMode {
             boxScoreBtn.innerHTML = `<span style="font-size: 16px; color: #facc15;">★</span> <span style="font-weight: 800; color: white;">${totalStars}</span> &nbsp;Select Level`;
         }
 
-        const gridToggle = document.getElementById('gridSnapToggle');
+        const gridToggle = document.getElementById('gameGridSnapToggle');
         if (gridToggle) {
             gridToggle.checked = !this.gridFreeMode;
         }
 
         this.updateGridLockLabel();
-
+        this.gridToggleBound = false;
         this.bindGridLockToggle();
     }
 
     updateGridLockLabel() {
-        const gridLockText = document.getElementById('gridSnapLabel');
+        const gridLockText = document.getElementById('gameGridSnapLabel');
         if (!gridLockText) return;
-        gridLockText.textContent = this.gridFreeMode ? 'Grid Snap: Off' : 'Grid Snap: On';
+        gridLockText.textContent = this.gridFreeMode ? 'Off' : 'On';
     }
 
     bindGridLockToggle() {
-        if (this.gridToggleBound) return;
-        const gridToggle = document.getElementById('gridSnapToggle');
+        const gridToggle = document.getElementById('gameGridSnapToggle');
         if (!gridToggle) return;
+
+        if (gridToggle.dataset.bound === 'true') {
+            gridToggle.checked = !this.gridFreeMode;
+            this.updateGridLockLabel();
+            return;
+        }
 
         gridToggle.checked = !this.gridFreeMode;
         gridToggle.addEventListener('change', () => {
@@ -2082,6 +2113,7 @@ class BeginnerMode {
             this.app.gridSnap = !this.gridFreeMode;
             this.updateGridLockLabel();
         });
+        gridToggle.dataset.bound = 'true';
         this.updateGridLockLabel();
         this.gridToggleBound = true;
     }
