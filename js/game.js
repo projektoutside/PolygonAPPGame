@@ -163,8 +163,8 @@ class BeginnerMode {
         this.modeType = 'fun';
         this.levelFailCount = 0; // Safety Feature: Track frustration
         this.audioCtx = null;
-        // Default to free precision controls (no snap) for smoother first-drag experience.
-        this.gridFreeMode = true;
+        // Default gameplay to Grid Snap ON (grid lock enabled by default).
+        this.gridFreeMode = false;
         this.gridToggleBound = false;
         this.optionsMenuReady = false;
         this.saveSlotCount = 3;
@@ -1698,43 +1698,8 @@ class BeginnerMode {
             };
             buttonRow.appendChild(boxScoreBtn);
 
-            const gridLockWrapper = document.createElement('label');
-            gridLockWrapper.style.cssText = `
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                padding: 8px 14px;
-                border-radius: 14px;
-                background: rgba(255, 255, 255, 0.92);
-                border: 1px solid rgba(226, 232, 240, 0.95);
-                box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
-                font-family: 'Inter', sans-serif;
-                font-size: 13px;
-                font-weight: 700;
-                color: #1f2937;
-                pointer-events: auto;
-                align-self: flex-start;
-            `;
-
-            const gridLockCheckbox = document.createElement('input');
-            gridLockCheckbox.type = 'checkbox';
-            gridLockCheckbox.id = 'gameGridLockToggle';
-            gridLockCheckbox.style.cssText = `
-                width: 18px;
-                height: 18px;
-                accent-color: #667eea;
-                cursor: pointer;
-            `;
-
-            const gridLockText = document.createElement('span');
-            gridLockText.id = 'gameGridLockText';
-            gridLockText.textContent = 'Open Grid';
-
-            gridLockWrapper.appendChild(gridLockCheckbox);
-            gridLockWrapper.appendChild(gridLockText);
-
             leftSide.appendChild(buttonRow);
-            leftSide.appendChild(gridLockWrapper);
+            // Grid Lock removed (now integrated in Viewport Controls)
 
             hud.appendChild(leftSide);
 
@@ -1788,7 +1753,7 @@ class BeginnerMode {
             boxScoreBtn.innerHTML = `<span style="font-size: 16px; color: #facc15;">★</span> <span style="font-weight: 800; color: white;">${totalStars}</span> &nbsp;Select Level`;
         }
 
-        const gridToggle = document.getElementById('gameGridLockToggle');
+        const gridToggle = document.getElementById('gridSnapToggle');
         if (gridToggle) {
             gridToggle.checked = !this.gridFreeMode;
         }
@@ -1799,14 +1764,14 @@ class BeginnerMode {
     }
 
     updateGridLockLabel() {
-        const gridLockText = document.getElementById('gameGridLockText');
+        const gridLockText = document.getElementById('gridSnapLabel');
         if (!gridLockText) return;
         gridLockText.textContent = this.gridFreeMode ? 'Grid Snap: Off' : 'Grid Snap: On';
     }
 
     bindGridLockToggle() {
         if (this.gridToggleBound) return;
-        const gridToggle = document.getElementById('gameGridLockToggle');
+        const gridToggle = document.getElementById('gridSnapToggle');
         if (!gridToggle) return;
 
         gridToggle.checked = !this.gridFreeMode;
@@ -2101,11 +2066,7 @@ class BeginnerMode {
 
         if (list) {
             list.innerHTML = '';
-            result.piecePercents.forEach((percent, index) => {
-                const item = document.createElement('div');
-                item.textContent = `Piece ${index + 1}: ${percent.toFixed(1)}%`;
-                list.appendChild(item);
-            });
+            list.style.display = 'none';
         }
 
         if (nextBtn) {

@@ -9,8 +9,7 @@
     <meta name="apple-mobile-web-app-title" content="Polygon Fun">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#667eea">
-    <meta name="description"
-        content="Slice polygons into target pieces in this fun geometry puzzle game.">
+    <meta name="description" content="Slice polygons into target pieces in this fun geometry puzzle game.">
     <!-- Manifest is injected only on http/https to avoid file:// CORS/origin=null errors -->
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
@@ -108,12 +107,12 @@
             touch-action: none;
             /* Critical: Disables browser handling of gestures */
         }
-        
+
         /* Professional slice mode cursor styling */
         #gameCanvas.slice-mode {
             cursor: crosshair;
         }
-        
+
         #gameCanvas.slice-active {
             cursor: crosshair;
         }
@@ -633,51 +632,7 @@
             /* Prevent default touch behaviors */
         }
 
-        /* Zoom Controls - Responsive Positioning */
-        .zoom-controls {
-            position: absolute;
-            bottom: clamp(12px, 2vw, 20px);
-            right: clamp(12px, 2vw, 20px);
-            display: flex;
-            flex-direction: column;
-            gap: var(--spacing-sm);
-            z-index: calc(var(--z-toolbar) - 1);
-        }
-
-        /* Mobile: Adjust position to avoid toolbar */
-        @media (max-width: 768px) {
-            .zoom-controls {
-                bottom: clamp(80px, 12vw, 100px);
-                right: var(--spacing-md);
-            }
-        }
-
-        .zoom-btn {
-            width: var(--touch-target-md);
-            min-width: var(--touch-target-min);
-            height: var(--touch-target-md);
-            min-height: var(--touch-target-min);
-            border: none;
-            background: white;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            box-shadow: 0 clamp(2px, 0.5vw, 4px) clamp(6px, 1vw, 8px) rgba(0, 0, 0, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: clamp(16px, 2vw, 20px);
-            transition: all 0.2s;
-            touch-action: manipulation;
-        }
-
-        .zoom-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .zoom-btn:active {
-            transform: scale(0.95);
-        }
+        /* Viewport Controls - moved to lines 1648+ */
 
         /* Fullscreen button in top tools bar */
         .fullscreen-top-btn {
@@ -1589,16 +1544,104 @@
             }
         }
 
-        /* Zoom Controls - Responsive Positioning */
-        .zoom-controls {
+        /* Viewport controls final positioning (top-left below blue buttons) */
+        .viewport-controls {
             position: absolute;
-            bottom: clamp(60px, 8vw, 80px);
-            /* Pushed up to avoid bottom panel overlap */
-            right: clamp(16px, 2vw, 24px);
-            display: flex;
-            flex-direction: column;
+            top: clamp(120px, 14vw, 130px);
+            left: clamp(12px, 2vw, 20px);
+            bottom: auto;
+            right: auto;
+            display: grid;
+            grid-template-columns: repeat(3, 42px);
+            grid-template-rows: repeat(2, 42px) auto;
+            align-items: center;
+            justify-items: center;
             gap: 8px;
-            z-index: var(--z-canvas-ui);
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(203, 213, 225, 0.95);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+        }
+
+        .pan-controls {
+            display: contents;
+        }
+
+        .pan-btn,
+        .zoom-btn {
+            width: 42px;
+            min-width: 42px;
+            height: 42px;
+            min-height: 42px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #334155;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* removed mobile-menu-toggle css if it was here, but i need to find the html */
+
+        .control-btn-blue {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            color: white;
+            border-color: #2563eb;
+            box-shadow: 0 2px 5px rgba(37, 99, 235, 0.3);
+        }
+
+        .pan-btn:hover,
+        .zoom-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .control-btn-blue:hover {
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4);
+            filter: brightness(1.05);
+        }
+
+        .pan-btn:active,
+        .zoom-btn:active {
+            transform: scale(0.96);
+        }
+
+        .grid-snap-controls {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #e2e8f0;
+            width: 100%;
+            background: transparent;
+            border-radius: 0;
+        }
+
+        .grid-snap-controls input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #3b82f6;
+            cursor: pointer;
+        }
+
+        .grid-snap-controls .grid-snap-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #334155;
+            line-height: 1.2;
         }
 
         /* Coordinate Display */
@@ -1959,7 +2002,8 @@
             align-items: center;
             justify-content: center;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            z-index: 999990; /* Above EVERYTHING except debug */
+            z-index: 999990;
+            /* Above EVERYTHING except debug */
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
@@ -1987,7 +2031,8 @@
             justify-content: center;
             background: radial-gradient(circle at top, rgba(102, 126, 234, 0.35), rgba(15, 23, 42, 0.82));
             backdrop-filter: blur(8px);
-            z-index: 10001; /* Above mainMenuOverlay (9999) */
+            z-index: 10001;
+            /* Above mainMenuOverlay (9999) */
             padding: 24px;
             /* Mobile touch handling */
             -webkit-overflow-scrolling: touch;
@@ -2521,25 +2566,33 @@
             left: 50%;
             transform: translateX(-50%);
             display: none;
-            gap: 12px;
+            gap: 8px;
             z-index: 1500;
             background: rgba(255, 255, 255, 0.9);
-            padding: 10px 16px;
-            border-radius: 16px;
+            padding: 8px 10px;
+            border-radius: 12px;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
             backdrop-filter: blur(6px);
         }
 
         .game-controls button {
             border: none;
-            border-radius: 10px;
-            padding: 10px 18px;
+            border-radius: 8px;
+            padding: 8px 12px;
             font-weight: 700;
             cursor: pointer;
             transition: transform 0.15s ease, opacity 0.2s ease;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            min-height: 44px;
+            min-height: 36px;
+            font-size: 14px;
+        }
+
+        .game-controls button.secondary {
+            min-width: 36px;
+            padding: 8px;
+            font-size: 18px;
+            line-height: 1;
         }
 
         .game-controls button.secondary {
@@ -2564,7 +2617,8 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 10200; /* Above game UI */
+            z-index: 10200;
+            /* Above game UI */
             padding: 24px;
             backdrop-filter: blur(8px);
             /* Mobile touch handling */
@@ -2858,7 +2912,8 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 10500; /* Above game panels */
+            z-index: 10500;
+            /* Above game panels */
             padding: 24px;
             backdrop-filter: blur(10px);
             /* Mobile touch handling */
@@ -3379,11 +3434,23 @@
                     <button class="fullscreen-top-btn" id="fullscreenToggle" title="Toggle Fullscreen">⤢</button>
                 </div>
 
-                <!-- Zoom Controls -->
-                <div class="zoom-controls">
-                    <button class="zoom-btn" id="zoomIn">➕</button>
-                    <button class="zoom-btn" id="zoomOut">➖</button>
-                    <button class="zoom-btn" id="zoomReset">🔍</button>
+                <!-- Viewport Controls (Pan + Zoom) -->
+                <div class="viewport-controls" aria-label="Viewport controls">
+                    <div class="pan-controls" aria-label="Pan controls">
+                        <button class="zoom-btn" id="zoomIn" aria-label="Zoom in">+</button>
+                        <button class="pan-btn control-btn-blue" id="panUp" aria-label="Pan up">↑</button>
+                        <button class="zoom-btn" id="zoomOut" aria-label="Zoom out">-</button>
+
+                        <button class="pan-btn control-btn-blue" id="panLeft" aria-label="Pan left">←</button>
+                        <button class="pan-btn control-btn-blue" id="panDown" aria-label="Pan down">↓</button>
+                        <button class="pan-btn control-btn-blue" id="panRight" aria-label="Pan right">→</button>
+                    </div>
+
+                    <label class="grid-snap-controls" for="gridSnapToggle" aria-label="Grid snap control">
+                        <input type="checkbox" id="gridSnapToggle" checked aria-label="Toggle grid snap"
+                            title="Toggle grid snap">
+                        <span class="grid-snap-label" id="gridSnapLabel">Grid Snap: On</span>
+                    </label>
                 </div>
 
                 <!-- Coordinate Display -->
@@ -3391,8 +3458,8 @@
 
                 <!-- Polygon Fun Game Controls -->
                 <div class="game-controls" id="gameControls">
-                    <button class="secondary" id="gameUndoBtn">Undo</button>
-                    <button class="secondary" id="gameRedoBtn">Redo</button>
+                    <button class="secondary" id="gameUndoBtn" aria-label="Undo" title="Undo">↶</button>
+                    <button class="secondary" id="gameRedoBtn" aria-label="Redo" title="Redo">↷</button>
                     <button id="gameSubmitBtn">Submit</button>
                 </div>
             </div>
@@ -4078,7 +4145,7 @@
                 this.splitLineStart = null;
                 this.splitLineEnd = null;
                 this.splitLineType = 'free'; // 'free', 'horizontal', 'vertical'
-                
+
                 // Professional Slice Visual State
                 this.sliceAnimationPhase = 0; // For animated effects
                 this.sliceLastValidState = false; // Track validity changes
@@ -4087,6 +4154,11 @@
                 this.splitPreviewRenderPending = false; // RAF gate for split preview renders
                 this.splitValidityCache = { key: '', value: false, ts: 0 }; // Cache expensive validity checks
                 this.splitLastPointerScreen = null; // Last known pointer location for fast-release accuracy
+                this.splitGestureStartScreen = null; // Screen-space gesture start for flick detection
+                this.splitGestureStartTime = 0; // Gesture start timestamp for flick detection
+                this.splitLastReleaseWasFlick = false; // Used by executeSplit guards
+                this.splitLastHintTime = 0; // Throttle "slow drag" hint toasts
+                this.splitEditingEndpoint = null; // 'start' | 'end' while adjusting a completed line
 
                 // Mouse tracking
                 this.mousePos = { x: 0, y: 0 };
@@ -4137,6 +4209,7 @@
                 this.lastRenderTime = 0;
                 this.renderThrottleMs = 16; // ~60fps max render rate
                 this.renderAnimationFrameId = null; // Track RAF for cleanup
+                this.panAnimationFrameId = null; // Smooth pan animation frame
 
                 this.init();
             }
@@ -4503,7 +4576,11 @@
                 // UI events
                 document.getElementById('zoomIn').addEventListener('click', () => this.zoomIn());
                 document.getElementById('zoomOut').addEventListener('click', () => this.zoomOut());
-                document.getElementById('zoomReset').addEventListener('click', () => this.zoomReset());
+                document.getElementById('zoomReset')?.addEventListener('click', () => this.zoomReset());
+                document.getElementById('panUp')?.addEventListener('click', () => this.panByDirection('up'));
+                document.getElementById('panDown')?.addEventListener('click', () => this.panByDirection('down'));
+                document.getElementById('panLeft')?.addEventListener('click', () => this.panByDirection('left'));
+                document.getElementById('panRight')?.addEventListener('click', () => this.panByDirection('right'));
                 document.getElementById('fullscreenToggle').addEventListener('click', () => this.toggleFullscreen());
 
                 // Fullscreen change event listeners (with browser prefixes)
@@ -4511,6 +4588,17 @@
                 document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
                 document.addEventListener('mozfullscreenchange', () => this.handleFullscreenChange());
                 document.addEventListener('MSFullscreenChange', () => this.handleFullscreenChange());
+
+                const gridSnapToggle = document.getElementById('gridSnapToggle');
+                if (gridSnapToggle) {
+                    gridSnapToggle.checked = !!this.gridSnap;
+                    gridSnapToggle.addEventListener('change', () => {
+                        this.gridSnap = !!gridSnapToggle.checked;
+                        this.updateGridSnapControlLabel();
+                        this.render(true);
+                    });
+                }
+                this.updateGridSnapControlLabel();
 
                 // Visualizer toggles
                 document.querySelectorAll('[data-viz]').forEach(item => {
@@ -5565,6 +5653,47 @@
                 }, 3000);
             }
 
+            findSplitEndpointAt(pos) {
+                if (!this.splitLineStart || !this.splitLineEnd) return null;
+
+                const hitRadiusPx = 24;
+                const hitRadiusWorld = hitRadiusPx / Math.max(0.1, this.zoom || 1);
+
+                const distToStart = this.distance(pos, this.splitLineStart);
+                const distToEnd = this.distance(pos, this.splitLineEnd);
+
+                if (distToStart <= hitRadiusWorld || distToEnd <= hitRadiusWorld) {
+                    return distToStart <= distToEnd ? 'start' : 'end';
+                }
+
+                return null;
+            }
+
+            updateSplitExecuteButtonState() {
+                const btn = document.querySelector('[data-tool="split"]');
+                if (!btn) return;
+
+                if (!this.splitMode) {
+                    btn.style.display = 'flex';
+                    return;
+                }
+
+                const hasLine = !!(this.splitLineStart && this.splitLineEnd);
+                const isValid = hasLine && this.isSplitValid(this.splitLineStart, this.splitLineEnd);
+
+                // Only allow execution for a fully valid (green) line.
+                btn.style.display = isValid ? 'flex' : 'none';
+            }
+
+            cancelSplitLine() {
+                this.splitLineStart = null;
+                this.splitLineEnd = null;
+                this.splitEditingEndpoint = null;
+                this.splitLastReleaseWasFlick = false;
+                this.updateSplitExecuteButtonState();
+                this.scheduleSplitPreviewRender();
+            }
+
             removeDuplicates() {
                 const uniquePolys = [];
                 const seenHashes = new Set();
@@ -5606,8 +5735,30 @@
                 // 2. Lock Execution Variables
                 const p1 = this.splitLineStart;
                 const p2 = this.splitLineEnd;
+
+                // Strict guard: only execute a fully valid (green) line.
+                if (!this.isSplitValid(p1, p2)) {
+                    this.showToast('Only a full green line can be executed.', true);
+                    this.cancelSplitLine();
+                    return;
+                }
+
+                // Execution-side micro-line safety guard:
+                // prevent accidental tiny cuts unless the release was an intentional flick.
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const worldLength = Math.sqrt(dx * dx + dy * dy);
+                const screenLengthPx = worldLength * Math.max(0.1, this.zoom || 1);
+                const minNonFlickExecuteLengthPx = 28;
+                if (screenLengthPx < minNonFlickExecuteLengthPx) {
+                    this.showToast('Line is too short. Drag a longer line or flick quickly to auto-cut.', true);
+                    this.cancelSplitLine();
+                    return;
+                }
+
                 this.splitLineStart = null;
                 this.splitLineEnd = null;
+                this.splitLastReleaseWasFlick = false;
 
                 const isFunGameMode = !!(
                     window.game &&
@@ -5843,8 +5994,28 @@
 
                 // Handle Split Mode Interaction - Professional AAA Experience
                 if (this.splitMode && e.button === 0) {
+                    // Endpoint edit mode for a completed line
+                    const endpointHit = this.findSplitEndpointAt(snappedPos);
+                    if (endpointHit) {
+                        this.isDragging = true;
+                        this.dragStart = { x, y };
+                        this.splitEditingEndpoint = endpointHit;
+                        this.splitLastPointerScreen = { x, y };
+                        this.canvas.style.cursor = 'crosshair';
+                        return;
+                    }
+
                     // Check for continuation (Click-Click method)
-                    const isContinuation = this.splitLineStart !== null;
+                    let isContinuation = this.splitLineStart !== null;
+
+                    // If a completed line exists and user did not grab an endpoint,
+                    // start a fresh line from this point.
+                    if (isContinuation) {
+                        this.splitLineStart = null;
+                        this.splitLineEnd = null;
+                        this.splitEditingEndpoint = null;
+                        isContinuation = false;
+                    }
 
                     this.isDragging = true;
                     this.dragStart = { x, y };
@@ -5858,7 +6029,10 @@
                         this.sliceLastValidState = false;
                     }
                     this.splitLineEnd = snappedPos;
-                    
+                    this.splitGestureStartScreen = { x, y };
+                    this.splitGestureStartTime = Date.now();
+                    this.splitLastReleaseWasFlick = false;
+
                     // Immediate visual feedback - change cursor
                     this.canvas.style.cursor = 'crosshair';
 
@@ -6023,7 +6197,15 @@
 
                 // Handle Split Line Dragging
                 if (this.splitMode && this.isDragging && this.splitStep === 1) {
-                    if (this.splitLineStart) {
+                    if (this.splitEditingEndpoint && this.splitLineStart && this.splitLineEnd) {
+                        this.splitLastPointerScreen = { x, y };
+                        if (this.splitEditingEndpoint === 'start') {
+                            this.splitLineStart = snappedPos;
+                        } else {
+                            this.splitLineEnd = snappedPos;
+                        }
+                        this.scheduleSplitPreviewRender();
+                    } else if (this.splitLineStart) {
                         this.splitLastPointerScreen = { x, y };
                         this.updateSplitLineConstraint(snappedPos);
                         this.scheduleSplitPreviewRender();
@@ -6126,22 +6308,36 @@
                     const worldPos = this.screenToWorld(x, y);
                     const snappedPos = this.snapToGrid(worldPos);
 
-                    const dragDist = Math.sqrt(Math.pow(x - this.dragStart.x, 2) + Math.pow(y - this.dragStart.y, 2));
-
-                    if (dragDist > 4) {
-                        // Dragged -> Execute
-                        this.splitLineEnd = snappedPos;
-                        this.executeSplit();
-                    } else {
-                        // Click (Tap)
-                        // Check if we are clicking a different point (P2)
-                        // Since MouseDown updates splitLineEnd to snappedPos, we can compare splitLineStart vs snappedPos
-                        if (this.splitLineStart &&
-                            (Math.abs(this.splitLineStart.x - snappedPos.x) > 0.001 ||
-                                Math.abs(this.splitLineStart.y - snappedPos.y) > 0.001)) {
-
+                    if (this.splitEditingEndpoint && this.splitLineStart && this.splitLineEnd) {
+                        if (this.splitEditingEndpoint === 'start') {
+                            this.splitLineStart = snappedPos;
+                        } else {
                             this.splitLineEnd = snappedPos;
-                            this.executeSplit();
+                        }
+                        this.splitEditingEndpoint = null;
+                        this.splitLastReleaseWasFlick = false;
+
+                        if (!this.isSplitValid(this.splitLineStart, this.splitLineEnd)) {
+                            this.cancelSplitLine();
+                        } else {
+                            this.scheduleSplitPreviewRender();
+                        }
+                    } else {
+                        this.splitLineEnd = snappedPos;
+                        this.splitLastReleaseWasFlick = false;
+
+                        if (!this.isSplitValid(this.splitLineStart, this.splitLineEnd)) {
+                            // Requirement: cancel immediately when released and not full green
+                            this.cancelSplitLine();
+                        } else {
+                            // Keep completed green line so user can adjust endpoints or press Execute Split.
+                            this.scheduleSplitPreviewRender();
+
+                            // In game mode there is no split toolbar button visible,
+                            // so execute the split immediately on release.
+                            if (this.isGameModeActive()) {
+                                this.executeSplit();
+                            }
                         }
                     }
                     // Don't return, let dragging state reset below
@@ -6267,8 +6463,28 @@
 
                 // Handle Split Mode Interaction - Professional Touch Experience
                 if (this.splitMode) {
+                    // Endpoint edit mode for completed line
+                    const endpointHit = this.findSplitEndpointAt(snappedPos);
+                    if (endpointHit) {
+                        this.isDragging = true;
+                        this.dragStart = { x, y };
+                        this.touchGestureLocked = true;
+                        this.splitEditingEndpoint = endpointHit;
+                        this.splitLastPointerScreen = { x, y };
+                        this.scheduleSplitPreviewRender();
+                        return;
+                    }
+
                     // Check if continuing from existing start point
-                    const isContinuation = this.splitLineStart !== null;
+                    let isContinuation = this.splitLineStart !== null;
+
+                    // Existing completed line + non-endpoint touch => start a fresh line.
+                    if (isContinuation) {
+                        this.splitLineStart = null;
+                        this.splitLineEnd = null;
+                        this.splitEditingEndpoint = null;
+                        isContinuation = false;
+                    }
 
                     this.isDragging = true;
                     this.dragStart = { x, y }; // Screen coords
@@ -6283,6 +6499,9 @@
                         this.sliceLastValidState = false;
                     }
                     this.splitLineEnd = snappedPos;
+                    this.splitGestureStartScreen = { x, y };
+                    this.splitGestureStartTime = Date.now();
+                    this.splitLastReleaseWasFlick = false;
 
                     const btn = document.querySelector('[data-tool="split"]');
                     if (btn) btn.style.display = 'flex';
@@ -6419,7 +6638,15 @@
 
                 // Handle Split Line Dragging
                 if (this.splitMode && this.isDragging) {
-                    if (this.splitLineStart) {
+                    if (this.splitEditingEndpoint && this.splitLineStart && this.splitLineEnd) {
+                        this.splitLastPointerScreen = { x, y };
+                        if (this.splitEditingEndpoint === 'start') {
+                            this.splitLineStart = snappedPos;
+                        } else {
+                            this.splitLineEnd = snappedPos;
+                        }
+                        this.scheduleSplitPreviewRender();
+                    } else if (this.splitLineStart) {
                         this.splitLastPointerScreen = { x, y };
                         this.updateSplitLineConstraint(snappedPos);
                         this.scheduleSplitPreviewRender();
@@ -6568,24 +6795,36 @@
                         const worldPos = this.screenToWorld(x, y);
                         const snappedPos = this.snapToGrid(worldPos);
 
-                        // Use dragStart (Screen coords)
-                        let dragDist = 0;
-                        if (this.dragStart) {
-                            dragDist = Math.sqrt(Math.pow(x - this.dragStart.x, 2) + Math.pow(y - this.dragStart.y, 2));
-                        }
-
-                        if (dragDist > 4) {
-                            // Dragged -> Execute
-                            this.splitLineEnd = snappedPos;
-                            this.executeSplit();
-                        } else {
-                            // Tap
-                            if (this.splitLineStart &&
-                                (Math.abs(this.splitLineStart.x - snappedPos.x) > 0.001 ||
-                                    Math.abs(this.splitLineStart.y - snappedPos.y) > 0.001)) {
-
+                        if (this.splitEditingEndpoint && this.splitLineStart && this.splitLineEnd) {
+                            if (this.splitEditingEndpoint === 'start') {
+                                this.splitLineStart = snappedPos;
+                            } else {
                                 this.splitLineEnd = snappedPos;
-                                this.executeSplit();
+                            }
+                            this.splitEditingEndpoint = null;
+                            this.splitLastReleaseWasFlick = false;
+
+                            if (!this.isSplitValid(this.splitLineStart, this.splitLineEnd)) {
+                                this.cancelSplitLine();
+                            } else {
+                                this.scheduleSplitPreviewRender();
+                            }
+                        } else {
+                            this.splitLineEnd = snappedPos;
+                            this.splitLastReleaseWasFlick = false;
+
+                            if (!this.isSplitValid(this.splitLineStart, this.splitLineEnd)) {
+                                // Requirement: cancel immediately when released and not full green
+                                this.cancelSplitLine();
+                            } else {
+                                // Keep completed green line so user can adjust endpoints or press Execute Split.
+                                this.scheduleSplitPreviewRender();
+
+                                // In game mode there is no split toolbar button visible,
+                                // so execute the split immediately on release.
+                                if (this.isGameModeActive()) {
+                                    this.executeSplit();
+                                }
                             }
                         }
                     }
@@ -6788,7 +7027,7 @@
                     this.canvas.style.cursor = 'grabbing';
                     return;
                 }
-                
+
                 // Professional cursor for split mode
                 if (this.splitMode) {
                     if (this.isDragging && this.splitLineStart) {
@@ -6805,6 +7044,18 @@
                     'select': 'default',
                 };
                 this.canvas.style.cursor = cursors[this.currentTool] || 'default';
+            }
+
+            updateGridSnapControlLabel() {
+                const toggle = document.getElementById('gridSnapToggle');
+                const label = document.getElementById('gridSnapLabel');
+                const isOn = !!this.gridSnap;
+                if (toggle && toggle.checked !== isOn) {
+                    toggle.checked = isOn;
+                }
+                if (label) {
+                    label.textContent = `Grid Snap: ${isOn ? 'On' : 'Off'}`;
+                }
             }
 
             updateProperties(targetPoly = null) {
@@ -7109,6 +7360,7 @@
                     this.updateLayers();
                     this.updateProperties();
                 }
+                this.updateGridSnapControlLabel();
 
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -7430,32 +7682,32 @@
              */
             drawProfessionalSliceLine() {
                 if (!this.splitLineStart || !this.splitLineEnd) return;
-                
+
                 this.ctx.save();
-                
+
                 const start = this.splitLineStart;
                 const end = this.splitLineEnd;
                 const isValid = this.isSplitValid(start, end);
-                
+
                 // Calculate line properties
                 const dx = end.x - start.x;
                 const dy = end.y - start.y;
                 const length = Math.sqrt(dx * dx + dy * dy);
                 const angle = Math.atan2(dy, dx);
-                
+
                 // Skip if line is too short (just a click, no drag yet)
                 if (length < 5 / this.zoom) {
                     this.ctx.restore();
                     return;
                 }
-                
+
                 // Update animation phase for smooth effects
                 this.sliceAnimationPhase = (this.sliceAnimationPhase + 0.05) % (Math.PI * 2);
-                
+
                 // Animate glow intensity on validity change
                 const targetGlow = isValid ? 1 : 0.3;
                 this.sliceGlowIntensity += (targetGlow - this.sliceGlowIntensity) * 0.15;
-                
+
                 // === LAYER 1: Outer Glow (soft, wide) ===
                 if (isValid) {
                     this.ctx.save();
@@ -7470,10 +7722,10 @@
                     this.ctx.stroke();
                     this.ctx.restore();
                 }
-                
+
                 // === LAYER 2: Main Line with Gradient ===
                 const gradient = this.ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-                
+
                 if (isValid) {
                     // Valid: Vibrant green gradient
                     gradient.addColorStop(0, '#22c55e');    // Green 500
@@ -7485,18 +7737,18 @@
                     gradient.addColorStop(0.5, '#94a3b8');  // Slate 400
                     gradient.addColorStop(1, '#64748b');    // Slate 500
                 }
-                
+
                 this.ctx.strokeStyle = gradient;
                 this.ctx.lineWidth = (isValid ? 4 : 3) / this.zoom;
                 this.ctx.lineCap = 'round';
                 this.ctx.lineJoin = 'round';
                 this.ctx.setLineDash([]);
-                
+
                 this.ctx.beginPath();
                 this.ctx.moveTo(start.x, start.y);
                 this.ctx.lineTo(end.x, end.y);
                 this.ctx.stroke();
-                
+
                 // === LAYER 3: Inner highlight line (for depth) ===
                 if (isValid) {
                     this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
@@ -7506,7 +7758,7 @@
                     this.ctx.lineTo(end.x, end.y);
                     this.ctx.stroke();
                 }
-                
+
                 // === LAYER 4: Elegant endpoint indicators (NO RED DOTS) ===
                 // Only show subtle indicators, not distracting circles
                 if (isValid) {
@@ -7518,29 +7770,29 @@
                     this.drawSliceEndpoint(start, false);
                     this.drawSliceEndpoint(end, false);
                 }
-                
+
                 // === LAYER 5: Animated "cutting" particles for valid slices ===
                 if (isValid && length > 20 / this.zoom) {
                     this.drawSliceParticles(start, end, length);
                 }
-                
+
                 // Track validity for haptic feedback
                 if (isValid !== this.sliceLastValidState) {
                     this.sliceLastValidState = isValid;
                     // Could add haptic feedback here for mobile: navigator.vibrate?.(10);
                 }
-                
+
                 this.ctx.restore();
             }
-            
+
             /**
              * Draw elegant endpoint indicator (replaces ugly red dots)
              */
             drawSliceEndpoint(point, isValid) {
                 const size = 6 / this.zoom;
-                
+
                 this.ctx.save();
-                
+
                 if (isValid) {
                     // Valid: Glowing green diamond
                     this.ctx.fillStyle = 'rgba(34, 197, 94, 0.9)';
@@ -7552,7 +7804,7 @@
                     this.ctx.shadowColor = 'transparent';
                     this.ctx.shadowBlur = 0;
                 }
-                
+
                 // Draw diamond shape for valid, circle for invalid
                 this.ctx.beginPath();
                 if (isValid) {
@@ -7567,7 +7819,7 @@
                     this.ctx.arc(point.x, point.y, size * 0.5, 0, Math.PI * 2);
                 }
                 this.ctx.fill();
-                
+
                 // Add white inner highlight for valid endpoints
                 if (isValid) {
                     this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
@@ -7575,37 +7827,37 @@
                     this.ctx.arc(point.x, point.y, size * 0.3, 0, Math.PI * 2);
                     this.ctx.fill();
                 }
-                
+
                 this.ctx.restore();
             }
-            
+
             /**
              * Draw animated particles along the slice line for visual feedback
              */
             drawSliceParticles(start, end, length) {
                 const numParticles = Math.min(5, Math.floor(length * this.zoom / 50));
                 const time = Date.now() / 1000;
-                
+
                 this.ctx.save();
-                
+
                 for (let i = 0; i < numParticles; i++) {
                     // Animate particle position along the line
                     const baseT = i / numParticles;
                     const animatedT = (baseT + time * 0.5) % 1;
-                    
+
                     const x = start.x + (end.x - start.x) * animatedT;
                     const y = start.y + (end.y - start.y) * animatedT;
-                    
+
                     // Fade in/out based on position
                     const alpha = Math.sin(animatedT * Math.PI) * 0.6;
                     const size = (2 + Math.sin(time * 3 + i) * 1) / this.zoom;
-                    
+
                     this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
                     this.ctx.beginPath();
                     this.ctx.arc(x, y, size, 0, Math.PI * 2);
                     this.ctx.fill();
                 }
-                
+
                 this.ctx.restore();
             }
 
@@ -8258,11 +8510,27 @@
             }
 
             // Utility functions
+            isFlickGesture(distancePx, durationMs, inputType = 'mouse') {
+                const speedPxPerMs = distancePx / Math.max(1, durationMs);
+                const isTouch = inputType === 'touch';
+
+                const minDistance = isTouch ? 34 : 42;
+                const minSpeed = isTouch ? 0.60 : 0.70;
+                const burstDistance = isTouch ? 80 : 90;
+                const burstDuration = isTouch ? 240 : 220;
+
+                if (distancePx < minDistance) return false;
+                if (speedPxPerMs >= minSpeed) return true;
+                if (distancePx >= burstDistance && durationMs <= burstDuration) return true;
+                return false;
+            }
+
             scheduleSplitPreviewRender() {
                 if (this.splitPreviewRenderPending) return;
                 this.splitPreviewRenderPending = true;
                 requestAnimationFrame(() => {
                     this.splitPreviewRenderPending = false;
+                    this.updateSplitExecuteButtonState();
                     this.render(true);
                 });
             }
@@ -8470,6 +8738,52 @@
                 this.gridNeedsRedraw = true;
                 this.lastGridState = null; // Force grid state recalculation
                 this.render();
+            }
+
+            panByDirection(direction) {
+                const step = Math.max(48, Math.min(120, this.gridSize * 3));
+                let dx = 0;
+                let dy = 0;
+
+                if (direction === 'up') dy = step;
+                if (direction === 'down') dy = -step;
+                if (direction === 'left') dx = step;
+                if (direction === 'right') dx = -step;
+
+                this.smoothPanBy(dx, dy, 150);
+            }
+
+            smoothPanBy(deltaX, deltaY, duration = 150) {
+                if (this.panAnimationFrameId) {
+                    cancelAnimationFrame(this.panAnimationFrameId);
+                    this.panAnimationFrameId = null;
+                }
+
+                const startPanX = this.pan.x;
+                const startPanY = this.pan.y;
+                const startTime = performance.now();
+
+                const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+                const animate = (now) => {
+                    const elapsed = now - startTime;
+                    const t = Math.min(1, elapsed / duration);
+                    const eased = easeOutCubic(t);
+
+                    this.pan.x = startPanX + deltaX * eased;
+                    this.pan.y = startPanY + deltaY * eased;
+                    this.gridNeedsRedraw = true;
+                    this.lastGridState = null;
+                    this.render(true);
+
+                    if (t < 1) {
+                        this.panAnimationFrameId = requestAnimationFrame(animate);
+                    } else {
+                        this.panAnimationFrameId = null;
+                    }
+                };
+
+                this.panAnimationFrameId = requestAnimationFrame(animate);
             }
 
             // Fullscreen functionality
@@ -8844,27 +9158,12 @@
                     topOffset = topBarHeight + toolbarHeight + 8;
                 }
 
-                // Left sidebar toggle (Layers)
-                let leftToggle = document.getElementById('mobileMenuLeft');
-                if (!leftToggle) {
-                    leftToggle = document.createElement('button');
-                    leftToggle.id = 'mobileMenuLeft';
-                    leftToggle.className = 'mobile-menu-toggle';
-                    leftToggle.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><rect x="7" y="7" width="10" height="10" rx="1" ry="1"/><rect x="11" y="11" width="6" height="6" rx="0.5" ry="0.5"/></svg>';
-                    leftToggle.setAttribute('aria-label', 'Toggle Layers Panel');
-                    leftToggle.style.left = '12px';
-                    leftToggle.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        const sidebar = document.querySelector('.sidebar:not(.sidebar-right)');
-                        if (sidebar) toggleMobileSidebar(sidebar);
-                    });
-                    canvasContainer.appendChild(leftToggle);
-                }
-                // Update position
-                leftToggle.style.top = `${topOffset}px`;
+                // Left sidebar toggle (Layers) - REMOVED per user request
+                // let leftToggle = document.getElementById('mobileMenuLeft');
+                // if (leftToggle) leftToggle.remove(); 
 
                 // Right sidebar toggle (Visualizers)
+
                 let rightToggle = document.getElementById('mobileMenuRight');
                 if (!rightToggle) {
                     rightToggle = document.createElement('button');
