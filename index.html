@@ -3280,38 +3280,6 @@
                 height: min(94vh, 760px);
             }
         }
-
-        /* CRITICALFIX: Force Viewport Controls Update on Mobile */
-        .viewport-controls {
-            position: absolute !important;
-            top: clamp(120px, 14vw, 130px);
-            left: clamp(12px, 2vw, 20px);
-            bottom: auto !important;
-            right: auto !important;
-            z-index: 1000 !important;
-            display: grid !important;
-        }
-
-        /* Specific Mobile Override to ensure visibility */
-        @media (max-width: 768px) {
-            .viewport-controls {
-                top: 70px !important;
-                left: 10px !important;
-                right: auto !important;
-                bottom: auto !important;
-                display: grid !important;
-                transform: none !important;
-            }
-
-            /* Ensure old classes don't interfere */
-            .zoom-controls,
-            .pan-controls {
-                position: static !important;
-                display: contents !important;
-                bottom: auto !important;
-                right: auto !important;
-            }
-        }
     </style>
 </head>
 
