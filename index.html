@@ -11,7 +11,7 @@
     <meta name="theme-color" content="#667eea">
     <meta name="description"
         content="Slice polygons into target pieces in this fun geometry puzzle game.">
-    <link rel="manifest" href="manifest.json">
+    <!-- Manifest is injected only on http/https to avoid file:// CORS/origin=null errors -->
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
@@ -107,6 +107,15 @@
             height: 100%;
             touch-action: none;
             /* Critical: Disables browser handling of gestures */
+        }
+        
+        /* Professional slice mode cursor styling */
+        #gameCanvas.slice-mode {
+            cursor: crosshair;
+        }
+        
+        #gameCanvas.slice-active {
+            cursor: crosshair;
         }
 
         .app-container {
@@ -1942,31 +1951,32 @@
             pointer-events: none;
         }
 
-        /* Fun Game Transition Overlay - AAA Smooth Entry */
+        /* Fun Game Transition Overlay - Seamless Full-Screen Mask */
         #funTransitionOverlay {
             position: fixed;
             inset: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at top, rgba(102, 126, 234, 0.55), rgba(15, 23, 42, 0.85));
-            backdrop-filter: blur(12px);
-            z-index: 9500;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 999990; /* Above EVERYTHING except debug */
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
-            transition: opacity 0.6s ease, visibility 0s linear 0.6s;
+            transition: opacity 0.4s ease-out, visibility 0s linear 0.4s;
         }
 
         #funTransitionOverlay.active {
             opacity: 1;
             visibility: visible;
-            transition: opacity 0.6s ease;
+            pointer-events: all;
+            transition: opacity 0.3s ease-out;
         }
 
         #funTransitionOverlay.active.exit {
             opacity: 0;
-            transition: opacity 0.8s ease;
+            pointer-events: none;
+            transition: opacity 0.5s ease-in;
         }
 
         .fun-game-start-overlay {
@@ -3822,18 +3832,61 @@
             },
 
             show() {
+                if (!this.overlay) return;
+                this.overlay.style.display = 'flex';
+                this.overlay.style.pointerEvents = 'auto';
                 this.overlay.classList.remove('hidden');
+
+                // Always ensure main menu background music is active when menu is shown.
+                if (typeof window.playBackgroundMusic === 'function') {
+                    try {
+                        window.playBackgroundMusic();
+                    } catch (e) {
+                        console.warn('[MainMenu] Failed to start background music:', e);
+                    }
+                }
             },
 
             hide() {
+                if (!this.overlay) return;
+                this.overlay.style.pointerEvents = 'none';
                 this.overlay.classList.add('hidden');
+            }
+        };
+
+        // Route safety guard: always resolve to this app shell entry.
+        const ensureAppEntryRoute = () => {
+            const path = window.location.pathname || '';
+            const hash = window.location.hash || '';
+            const isAppEntry = /(?:\/|\/index\.html)$/i.test(path);
+            const hasRouterLikeHash = hash.startsWith('#/');
+
+            if (!isAppEntry || hasRouterLikeHash) {
+                window.history.replaceState(null, '', './index.html');
             }
         };
 
         // Initialize Main Menu when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
+            ensureAppEntryRoute();
             MainMenu.init();
         });
+
+        // Register PWA manifest only on supported secure/network origins.
+        // Prevents file:// origin "null" CORS noise during local file testing.
+        (function registerManifestWhenSupported() {
+            const protocol = window.location.protocol;
+            const isSupportedOrigin = protocol === 'http:' || protocol === 'https:';
+            if (!isSupportedOrigin) return;
+
+            const existing = document.querySelector('link[rel="manifest"]');
+            if (existing) return;
+
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = 'manifest.json';
+            document.head.appendChild(link);
+        })();
 
         // Device Detection and Viewport Intelligence System
         class DeviceDetector {
@@ -4025,6 +4078,15 @@
                 this.splitLineStart = null;
                 this.splitLineEnd = null;
                 this.splitLineType = 'free'; // 'free', 'horizontal', 'vertical'
+                
+                // Professional Slice Visual State
+                this.sliceAnimationPhase = 0; // For animated effects
+                this.sliceLastValidState = false; // Track validity changes
+                this.sliceGlowIntensity = 0; // Animated glow
+                this.sliceStartTime = 0; // When slice began (for animations)
+                this.splitPreviewRenderPending = false; // RAF gate for split preview renders
+                this.splitValidityCache = { key: '', value: false, ts: 0 }; // Cache expensive validity checks
+                this.splitLastPointerScreen = null; // Last known pointer location for fast-release accuracy
 
                 // Mouse tracking
                 this.mousePos = { x: 0, y: 0 };
@@ -4423,6 +4485,9 @@
                 this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
                 this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
                 this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+                // Global mouse listeners keep split drag responsive even if pointer leaves canvas
+                document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
                 this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
                 this.canvas.addEventListener('dblclick', (e) => this.handleDoubleClick(e));
 
@@ -5776,24 +5841,34 @@
                     return;
                 }
 
-                // Handle Split Mode Interaction
+                // Handle Split Mode Interaction - Professional AAA Experience
                 if (this.splitMode && e.button === 0) {
-                    // Step 1: Start drawing line (Default)
-
-                    // Check for continuation (Click-Click)
+                    // Check for continuation (Click-Click method)
                     const isContinuation = this.splitLineStart !== null;
 
                     this.isDragging = true;
                     this.dragStart = { x, y };
 
                     if (!isContinuation) {
+                        // New slice starting - initialize animation state
                         this.splitLineStart = snappedPos;
+                        this.sliceStartTime = Date.now();
+                        this.sliceAnimationPhase = 0;
+                        this.sliceGlowIntensity = 0;
+                        this.sliceLastValidState = false;
                     }
                     this.splitLineEnd = snappedPos;
+                    
+                    // Immediate visual feedback - change cursor
+                    this.canvas.style.cursor = 'crosshair';
 
                     // Show Execute button once drawing starts
                     const btn = document.querySelector('[data-tool="split"]');
                     if (btn) btn.style.display = 'flex';
+
+                    // Track latest pointer and render on next frame (low latency, no jank)
+                    this.splitLastPointerScreen = { x, y };
+                    this.scheduleSplitPreviewRender();
 
                     return;
                 }
@@ -5931,6 +6006,9 @@
 
 
             handleMouseMove(e) {
+                if (!(e.target === this.canvas || this.isDragging || this.isPanning || this.splitMode)) {
+                    return;
+                }
                 const rect = this.canvas.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
@@ -5946,8 +6024,9 @@
                 // Handle Split Line Dragging
                 if (this.splitMode && this.isDragging && this.splitStep === 1) {
                     if (this.splitLineStart) {
+                        this.splitLastPointerScreen = { x, y };
                         this.updateSplitLineConstraint(snappedPos);
-                        this.render(true); // Force render during drag
+                        this.scheduleSplitPreviewRender();
                     }
                     return;
                 }
@@ -6028,6 +6107,9 @@
             }
 
             handleMouseUp(e) {
+                if (!this.isDragging && !this.isPanning && e.target !== this.canvas) {
+                    return;
+                }
                 // If we were panning, stop it
                 if (this.isPanning) {
                     this.isPanning = false;
@@ -6040,12 +6122,13 @@
                     const rect = this.canvas.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const y = e.clientY - rect.top;
+                    this.splitLastPointerScreen = { x, y };
                     const worldPos = this.screenToWorld(x, y);
                     const snappedPos = this.snapToGrid(worldPos);
 
                     const dragDist = Math.sqrt(Math.pow(x - this.dragStart.x, 2) + Math.pow(y - this.dragStart.y, 2));
 
-                    if (dragDist > 10) {
+                    if (dragDist > 4) {
                         // Dragged -> Execute
                         this.splitLineEnd = snappedPos;
                         this.executeSplit();
@@ -6182,26 +6265,30 @@
                 this.touchStartPos = { x, y }; // Screen coordinates - for movement detection
                 this.touchLastMoveTime = Date.now();
 
-                // Handle Split Mode Interaction
+                // Handle Split Mode Interaction - Professional Touch Experience
                 if (this.splitMode) {
-                    // Step 1: Start drawing line (Default)
-
-                    // Check if we are continuing from an existing start point (Click-Click method)
-                    // If we have a start point and aren't currently dragging, this might be the second click
+                    // Check if continuing from existing start point
                     const isContinuation = this.splitLineStart !== null;
 
                     this.isDragging = true;
                     this.dragStart = { x, y }; // Screen coords
+                    this.touchGestureLocked = true; // Lock to slice gesture immediately
 
                     if (!isContinuation) {
-                        // New line start
+                        // New slice starting - initialize animation state
                         this.splitLineStart = snappedPos;
+                        this.sliceStartTime = Date.now();
+                        this.sliceAnimationPhase = 0;
+                        this.sliceGlowIntensity = 0;
+                        this.sliceLastValidState = false;
                     }
-                    // Always update end to current pos
                     this.splitLineEnd = snappedPos;
 
                     const btn = document.querySelector('[data-tool="split"]');
                     if (btn) btn.style.display = 'flex';
+
+                    this.splitLastPointerScreen = { x, y };
+                    this.scheduleSplitPreviewRender();
 
                     return;
                 }
@@ -6333,8 +6420,9 @@
                 // Handle Split Line Dragging
                 if (this.splitMode && this.isDragging) {
                     if (this.splitLineStart) {
+                        this.splitLastPointerScreen = { x, y };
                         this.updateSplitLineConstraint(snappedPos);
-                        this.render(true); // Force render during drag
+                        this.scheduleSplitPreviewRender();
                     }
                     return;
                 }
@@ -6476,6 +6564,7 @@
                         const rect = this.canvas.getBoundingClientRect();
                         const x = touch.clientX - rect.left;
                         const y = touch.clientY - rect.top;
+                        this.splitLastPointerScreen = { x, y };
                         const worldPos = this.screenToWorld(x, y);
                         const snappedPos = this.snapToGrid(worldPos);
 
@@ -6485,7 +6574,7 @@
                             dragDist = Math.sqrt(Math.pow(x - this.dragStart.x, 2) + Math.pow(y - this.dragStart.y, 2));
                         }
 
-                        if (dragDist > 10) {
+                        if (dragDist > 4) {
                             // Dragged -> Execute
                             this.splitLineEnd = snappedPos;
                             this.executeSplit();
@@ -6699,6 +6788,18 @@
                     this.canvas.style.cursor = 'grabbing';
                     return;
                 }
+                
+                // Professional cursor for split mode
+                if (this.splitMode) {
+                    if (this.isDragging && this.splitLineStart) {
+                        // Actively drawing a slice
+                        this.canvas.style.cursor = 'crosshair';
+                    } else {
+                        // Ready to slice
+                        this.canvas.style.cursor = 'crosshair';
+                    }
+                    return;
+                }
 
                 const cursors = {
                     'select': 'default',
@@ -6888,10 +6989,24 @@
             }
 
             isSplitValid(p1, p2) {
+                const cacheKey = [
+                    Math.round(p1.x * 10), Math.round(p1.y * 10),
+                    Math.round(p2.x * 10), Math.round(p2.y * 10),
+                    this.polygons.length,
+                    this.selectedPolygon ? this.selectedPolygon.name : '*',
+                    this.historyIndex
+                ].join('|');
+                if (this.splitValidityCache.key === cacheKey) {
+                    return this.splitValidityCache.value;
+                }
+
                 // Minimum length check (5 pixels) to prevent instant green on click
                 const dx = p1.x - p2.x;
                 const dy = p1.y - p2.y;
-                if ((dx * dx + dy * dy) < 25) return false;
+                if ((dx * dx + dy * dy) < 16) {
+                    this.splitValidityCache = { key: cacheKey, value: false, ts: performance.now() };
+                    return false;
+                }
 
                 // Determine targets
                 let targets = this.polygons;
@@ -6919,28 +7034,44 @@
                     // Check for strict intersection (0 < s < 1 and 0 < t < 1)
                     // We use a small epsilon to avoid edge cases causing false negatives on exact hits
                     // but usually for "crossing" we want strictly inside.
-                    return (s >= 0 && s <= 1 && t >= 0 && t <= 1);
+                    if (!(s >= 0 && s <= 1 && t >= 0 && t <= 1)) {
+                        return null;
+                    }
+
+                    return {
+                        x: a.x + (t * s1_x),
+                        y: a.y + (t * s1_y)
+                    };
                 };
 
+                let isValid = false;
                 for (let poly of targets) {
                     if (!poly.visible) continue;
 
-                    let crossings = 0;
+                    const hits = [];
                     const verts = poly.vertices;
                     for (let i = 0; i < verts.length; i++) {
                         const v1 = verts[i];
                         const v2 = verts[(i + 1) % verts.length];
 
                         // Check intersection between split line (p1, p2) and edge (v1, v2)
-                        if (getSegmentIntersection(p1, p2, v1, v2)) {
-                            crossings++;
+                        const hit = getSegmentIntersection(p1, p2, v1, v2);
+                        if (hit) {
+                            // Deduplicate vertex hits (same point reported by 2 adjacent edges)
+                            const duplicate = hits.some(h => Math.abs(h.x - hit.x) < 0.01 && Math.abs(h.y - hit.y) < 0.01);
+                            if (!duplicate) hits.push(hit);
                         }
                     }
 
                     // Must cross at least 2 edges to split
-                    if (crossings >= 2) return true;
+                    if (hits.length >= 2) {
+                        isValid = true;
+                        break;
+                    }
                 }
-                return false;
+
+                this.splitValidityCache = { key: cacheKey, value: isValid, ts: performance.now() };
+                return isValid;
             }
 
             // Rendering
@@ -7021,38 +7152,9 @@
                     }
                 }
 
-                // Draw Split Line
+                // Draw Split Line - Professional AAA Quality Rendering
                 if (this.splitMode && this.splitLineStart && this.splitLineEnd) {
-                    this.ctx.save();
-
-                    // Check validation using our new helper
-                    const isValid = this.isSplitValid(this.splitLineStart, this.splitLineEnd);
-
-                    if (isValid) {
-                        // Valid Cut: Solid Green
-                        this.ctx.strokeStyle = '#48bb78'; // Green
-                        this.ctx.lineWidth = 3 / this.zoom;
-                        this.ctx.setLineDash([]); // Solid
-                    } else {
-                        // Invalid/Drawing: Dotted Gray (as requested)
-                        this.ctx.strokeStyle = '#94a3b8'; // Slate 400 Gray
-                        this.ctx.lineWidth = 2 / this.zoom;
-                        this.ctx.setLineDash([5 / this.zoom, 5 / this.zoom]); // Dotted
-                    }
-
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(this.splitLineStart.x, this.splitLineStart.y);
-                    this.ctx.lineTo(this.splitLineEnd.x, this.splitLineEnd.y);
-                    this.ctx.stroke();
-
-                    // Draw endpoints
-                    this.ctx.fillStyle = isValid ? '#48bb78' : '#e53e3e';
-                    this.ctx.beginPath();
-                    this.ctx.arc(this.splitLineStart.x, this.splitLineStart.y, 4 / this.zoom, 0, Math.PI * 2);
-                    this.ctx.arc(this.splitLineEnd.x, this.splitLineEnd.y, 4 / this.zoom, 0, Math.PI * 2);
-                    this.ctx.fill();
-
-                    this.ctx.restore();
+                    this.drawProfessionalSliceLine();
                 }
 
                 this.ctx.restore();
@@ -7316,6 +7418,194 @@
                 }
 
                 // Restore context state after drawing polygon
+                this.ctx.restore();
+            }
+
+            /**
+             * Professional AAA-Quality Slice Line Rendering
+             * - No annoying red dots
+             * - Smooth gradient line with glow effects
+             * - Elegant visual feedback for valid/invalid states
+             * - Animated slice preview
+             */
+            drawProfessionalSliceLine() {
+                if (!this.splitLineStart || !this.splitLineEnd) return;
+                
+                this.ctx.save();
+                
+                const start = this.splitLineStart;
+                const end = this.splitLineEnd;
+                const isValid = this.isSplitValid(start, end);
+                
+                // Calculate line properties
+                const dx = end.x - start.x;
+                const dy = end.y - start.y;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx);
+                
+                // Skip if line is too short (just a click, no drag yet)
+                if (length < 5 / this.zoom) {
+                    this.ctx.restore();
+                    return;
+                }
+                
+                // Update animation phase for smooth effects
+                this.sliceAnimationPhase = (this.sliceAnimationPhase + 0.05) % (Math.PI * 2);
+                
+                // Animate glow intensity on validity change
+                const targetGlow = isValid ? 1 : 0.3;
+                this.sliceGlowIntensity += (targetGlow - this.sliceGlowIntensity) * 0.15;
+                
+                // === LAYER 1: Outer Glow (soft, wide) ===
+                if (isValid) {
+                    this.ctx.save();
+                    this.ctx.shadowColor = 'rgba(34, 197, 94, 0.6)'; // Green glow
+                    this.ctx.shadowBlur = 20 / this.zoom * this.sliceGlowIntensity;
+                    this.ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)';
+                    this.ctx.lineWidth = 8 / this.zoom;
+                    this.ctx.lineCap = 'round';
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(start.x, start.y);
+                    this.ctx.lineTo(end.x, end.y);
+                    this.ctx.stroke();
+                    this.ctx.restore();
+                }
+                
+                // === LAYER 2: Main Line with Gradient ===
+                const gradient = this.ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+                
+                if (isValid) {
+                    // Valid: Vibrant green gradient
+                    gradient.addColorStop(0, '#22c55e');    // Green 500
+                    gradient.addColorStop(0.5, '#4ade80');  // Green 400
+                    gradient.addColorStop(1, '#22c55e');    // Green 500
+                } else {
+                    // Invalid/Drawing: Subtle blue-gray gradient
+                    gradient.addColorStop(0, '#64748b');    // Slate 500
+                    gradient.addColorStop(0.5, '#94a3b8');  // Slate 400
+                    gradient.addColorStop(1, '#64748b');    // Slate 500
+                }
+                
+                this.ctx.strokeStyle = gradient;
+                this.ctx.lineWidth = (isValid ? 4 : 3) / this.zoom;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                this.ctx.setLineDash([]);
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(start.x, start.y);
+                this.ctx.lineTo(end.x, end.y);
+                this.ctx.stroke();
+                
+                // === LAYER 3: Inner highlight line (for depth) ===
+                if (isValid) {
+                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                    this.ctx.lineWidth = 1.5 / this.zoom;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(start.x, start.y);
+                    this.ctx.lineTo(end.x, end.y);
+                    this.ctx.stroke();
+                }
+                
+                // === LAYER 4: Elegant endpoint indicators (NO RED DOTS) ===
+                // Only show subtle indicators, not distracting circles
+                if (isValid) {
+                    // Valid: Small glowing diamonds at endpoints
+                    this.drawSliceEndpoint(start, true);
+                    this.drawSliceEndpoint(end, true);
+                } else {
+                    // Invalid: Very subtle indicators
+                    this.drawSliceEndpoint(start, false);
+                    this.drawSliceEndpoint(end, false);
+                }
+                
+                // === LAYER 5: Animated "cutting" particles for valid slices ===
+                if (isValid && length > 20 / this.zoom) {
+                    this.drawSliceParticles(start, end, length);
+                }
+                
+                // Track validity for haptic feedback
+                if (isValid !== this.sliceLastValidState) {
+                    this.sliceLastValidState = isValid;
+                    // Could add haptic feedback here for mobile: navigator.vibrate?.(10);
+                }
+                
+                this.ctx.restore();
+            }
+            
+            /**
+             * Draw elegant endpoint indicator (replaces ugly red dots)
+             */
+            drawSliceEndpoint(point, isValid) {
+                const size = 6 / this.zoom;
+                
+                this.ctx.save();
+                
+                if (isValid) {
+                    // Valid: Glowing green diamond
+                    this.ctx.fillStyle = 'rgba(34, 197, 94, 0.9)';
+                    this.ctx.shadowColor = 'rgba(34, 197, 94, 0.8)';
+                    this.ctx.shadowBlur = 8 / this.zoom;
+                } else {
+                    // Invalid: Subtle gray circle
+                    this.ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+                    this.ctx.shadowColor = 'transparent';
+                    this.ctx.shadowBlur = 0;
+                }
+                
+                // Draw diamond shape for valid, circle for invalid
+                this.ctx.beginPath();
+                if (isValid) {
+                    // Diamond shape
+                    this.ctx.moveTo(point.x, point.y - size);
+                    this.ctx.lineTo(point.x + size * 0.7, point.y);
+                    this.ctx.lineTo(point.x, point.y + size);
+                    this.ctx.lineTo(point.x - size * 0.7, point.y);
+                    this.ctx.closePath();
+                } else {
+                    // Small subtle circle
+                    this.ctx.arc(point.x, point.y, size * 0.5, 0, Math.PI * 2);
+                }
+                this.ctx.fill();
+                
+                // Add white inner highlight for valid endpoints
+                if (isValid) {
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(point.x, point.y, size * 0.3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                
+                this.ctx.restore();
+            }
+            
+            /**
+             * Draw animated particles along the slice line for visual feedback
+             */
+            drawSliceParticles(start, end, length) {
+                const numParticles = Math.min(5, Math.floor(length * this.zoom / 50));
+                const time = Date.now() / 1000;
+                
+                this.ctx.save();
+                
+                for (let i = 0; i < numParticles; i++) {
+                    // Animate particle position along the line
+                    const baseT = i / numParticles;
+                    const animatedT = (baseT + time * 0.5) % 1;
+                    
+                    const x = start.x + (end.x - start.x) * animatedT;
+                    const y = start.y + (end.y - start.y) * animatedT;
+                    
+                    // Fade in/out based on position
+                    const alpha = Math.sin(animatedT * Math.PI) * 0.6;
+                    const size = (2 + Math.sin(time * 3 + i) * 1) / this.zoom;
+                    
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                
                 this.ctx.restore();
             }
 
@@ -7968,6 +8258,15 @@
             }
 
             // Utility functions
+            scheduleSplitPreviewRender() {
+                if (this.splitPreviewRenderPending) return;
+                this.splitPreviewRenderPending = true;
+                requestAnimationFrame(() => {
+                    this.splitPreviewRenderPending = false;
+                    this.render(true);
+                });
+            }
+
             setTool(tool) {
 
                 document.querySelectorAll('[data-tool]').forEach(btn => {
@@ -7988,7 +8287,7 @@
                 if (this.polygons[index]) {
                     this.polygons[index].visible = !this.polygons[index].visible;
                     this.saveHistory();
-                    this.render();
+                    this.scheduleSplitPreviewRender();
                     this.updateLayers();
                 }
             }
@@ -8001,7 +8300,7 @@
                     this.polygons.splice(index, 1);
                     this.saveHistory();
                     this.updateProperties();
-                    this.updateLayers();
+                    this.scheduleSplitPreviewRender();
                     this.render();
                 }
             }
@@ -8705,6 +9004,14 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
+                const protocol = window.location.protocol;
+                const isSupportedOrigin = protocol === 'http:' || protocol === 'https:';
+
+                if (!isSupportedOrigin) {
+                    console.info('[PWA] Skipping service worker registration on unsupported origin:', protocol);
+                    return;
+                }
+
                 navigator.serviceWorker.register('./service-worker.js')
                     .catch((error) => console.error('Service worker registration failed:', error));
             });

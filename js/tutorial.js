@@ -10,8 +10,18 @@ class Tutorial {
         this.currentStep = 0;
         this.overlay = null;
         this.currentAudio = null;
+        this.currentAudioStep = -1;
+        this.audioPlayToken = 0;
         this.initialized = false;
         this.preloaded = false;
+        this.audioPreloaded = false;
+        this.audioFiles = [
+            'Music/Tutorial1.mp3',
+            'Music/Tutorial2.mp3',
+            'Music/Tutorial3.mp3',
+            'Music/Tutorial4.mp3'
+        ];
+        this.preloadedAudio = new Map();
         this.linesInterval = null;
         this.steps = [
             {
@@ -83,9 +93,27 @@ class Tutorial {
      */
     cleanup() {
         if (this.linesInterval) {
-            clearInterval(this.linesInterval);
+            clearTimeout(this.linesInterval);
             this.linesInterval = null;
         }
+    }
+
+    preloadAudio() {
+        if (this.audioPreloaded) return;
+
+        this._log('Preloading tutorial audio files');
+        this.audioFiles.forEach((path) => {
+            try {
+                const audio = new Audio(path);
+                audio.preload = 'auto';
+                audio.load();
+                this.preloadedAudio.set(path, audio);
+            } catch (e) {
+                this._log(`Audio preload failed for ${path}: ${e.message}`, 'warn');
+            }
+        });
+
+        this.audioPreloaded = true;
     }
 
     init() {
@@ -117,6 +145,8 @@ class Tutorial {
         if (!this.preloaded) {
             this.preloadStyles();
         }
+
+        this.preloadAudio();
 
         this.createOverlay();
         this._log('init() complete');
@@ -373,6 +403,10 @@ class Tutorial {
      * Add mobile-friendly click/touch handler
      */
     _addMobileHandler(element, handler) {
+        if (!element || element.dataset.tutorialHandlerAttached === 'true') {
+            return;
+        }
+
         let lastTime = 0;
         const DEBOUNCE = 300;
         
@@ -395,6 +429,8 @@ class Tutorial {
             }, { passive: false });
             element.addEventListener('click', wrappedHandler);
         }
+
+        element.dataset.tutorialHandlerAttached = 'true';
     }
 
     showStep(index) {
@@ -471,14 +507,25 @@ class Tutorial {
             this._log('Could not save tutorial_seen to localStorage', 'warn');
         }
         
-        // Only start game if we're still in menu state
-        if (window.game && window.game.state === 'menu') {
-            this._log('Starting game after tutorial skip');
+        // Only auto-start game when explicitly allowed by the caller.
+        // This prevents stale tutorial overlay interactions from re-entering
+        // Beginner mode after returning to Main Menu.
+        const allowAutoStart = window.__allowTutorialToStartGame === true;
+
+        // Consume the flag so a stale/delayed tutorial action can't retrigger start.
+        window.__allowTutorialToStartGame = false;
+
+        if (allowAutoStart && window.game && window.game.state === 'menu') {
+            this._log('Starting game after tutorial skip (allowed)');
             window.game.startMode('beginner');
+        } else {
+            this._log('Tutorial skip completed without auto-start', 'info');
         }
     }
 
     stopAudio() {
+        this.audioPlayToken++;
+
         if (this.currentAudio) {
             try {
                 this.currentAudio.pause();
@@ -488,17 +535,33 @@ class Tutorial {
             }
             this.currentAudio = null;
         }
+
+        this.currentAudioStep = -1;
     }
 
     playAudio(index) {
         this.stopAudio();
-        
-        const audioPath = `Music/Tutorial${index + 1}.mp3`;
+
+        const audioPath = this.audioFiles[index];
+        if (!audioPath) {
+            this._log(`No tutorial audio mapped for step ${index}`, 'warn');
+            return;
+        }
+
+        const playToken = this.audioPlayToken;
+        this.currentAudioStep = index;
         this._log(`Playing audio: ${audioPath}`);
-        
+
         try {
-            this.currentAudio = new Audio(audioPath);
+            const preloaded = this.preloadedAudio.get(audioPath);
+            this.currentAudio = preloaded ? preloaded.cloneNode(true) : new Audio(audioPath);
+            this.currentAudio.preload = 'auto';
+            this.currentAudio.currentTime = 0;
+
             this.currentAudio.play().catch(e => {
+                if (playToken !== this.audioPlayToken) {
+                    return;
+                }
                 // Audio autoplay blocked - this is expected on mobile
                 this._log(`Audio blocked (expected on mobile): ${e.message}`, 'warn');
             });
@@ -769,8 +832,13 @@ window.tutorial = new Tutorial();
 
 // Preload styles during idle time
 const preloadTutorialOnIdle = () => {
-    if (window.tutorial && typeof window.tutorial.preloadStyles === 'function') {
-        window.tutorial.preloadStyles();
+    if (window.tutorial) {
+        if (typeof window.tutorial.preloadStyles === 'function') {
+            window.tutorial.preloadStyles();
+        }
+        if (typeof window.tutorial.preloadAudio === 'function') {
+            window.tutorial.preloadAudio();
+        }
     }
 };
 

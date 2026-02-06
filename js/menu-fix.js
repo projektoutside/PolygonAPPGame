@@ -134,8 +134,45 @@
         }
     };
 
-    const stopMusic = () => {
-        if (typeof window.stopBackgroundMusic === 'function') {
+    /**
+     * Fade out background music smoothly
+     * Returns a Promise that resolves when fade is complete
+     * @param {number} duration - Fade duration in ms (default 1200)
+     * @returns {Promise}
+     */
+    const fadeOutMusic = async (duration = 1200) => {
+        MobileDebug.add(`Fading out music (${duration}ms)...`, 'event');
+        
+        if (typeof window.fadeOutBackgroundMusic === 'function') {
+            try {
+                await window.fadeOutBackgroundMusic(duration);
+                MobileDebug.add('Music fade complete', 'success');
+            } catch (e) {
+                MobileDebug.add(`Music fade error: ${e.message}`, 'warn');
+            }
+        } else if (typeof window.stopBackgroundMusic === 'function') {
+            // Fallback to legacy stop
+            try {
+                window.stopBackgroundMusic();
+                // Wait a bit for the legacy fade
+                await new Promise(r => setTimeout(r, 1500));
+            } catch (e) {
+                MobileDebug.add(`Music stop error: ${e.message}`, 'warn');
+            }
+        }
+    };
+
+    /**
+     * Stop music immediately (no fade)
+     */
+    const stopMusicImmediate = () => {
+        if (typeof window.stopMusicImmediate === 'function') {
+            try {
+                window.stopMusicImmediate();
+            } catch (e) {
+                MobileDebug.add(`Music stop error: ${e.message}`, 'warn');
+            }
+        } else if (typeof window.stopBackgroundMusic === 'function') {
             try {
                 window.stopBackgroundMusic();
             } catch (e) {
@@ -144,6 +181,103 @@
         }
     };
 
+    // ========================================================================
+    // SEAMLESS TRANSITION SYSTEM
+    // ========================================================================
+    
+    /**
+     * Show the full-screen transition overlay (masks everything)
+     * Returns a Promise that resolves when overlay is fully visible
+     */
+    const showTransitionOverlay = () => {
+        return new Promise((resolve) => {
+            const overlay = document.getElementById('funTransitionOverlay');
+            if (!overlay) {
+                resolve();
+                return;
+            }
+
+            MobileDebug.add('Showing transition overlay...', 'event');
+            
+            // Remove any existing exit class
+            overlay.classList.remove('exit');
+            
+            // Make it visible and active
+            overlay.style.display = 'flex';
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-hidden', 'false');
+            
+            // Force reflow to ensure transition triggers
+            overlay.offsetHeight;
+            
+            // Wait for fade-in to complete (300ms as per CSS)
+            setTimeout(() => {
+                MobileDebug.add('Transition overlay fully visible', 'success');
+                resolve();
+            }, 350); // Slightly longer than CSS transition
+        });
+    };
+    
+    /**
+     * Hide the transition overlay with smooth fade-out
+     * Returns a Promise that resolves when overlay is hidden
+     */
+    const hideTransitionOverlay = () => {
+        return new Promise((resolve) => {
+            const overlay = document.getElementById('funTransitionOverlay');
+            if (!overlay) {
+                resolve();
+                return;
+            }
+
+            MobileDebug.add('Hiding transition overlay...', 'event');
+            
+            // Start exit animation
+            overlay.classList.add('exit');
+            
+            // Wait for fade-out to complete (500ms as per CSS)
+            setTimeout(() => {
+                overlay.classList.remove('active', 'exit');
+                overlay.setAttribute('aria-hidden', 'true');
+                MobileDebug.add('Transition overlay hidden', 'success');
+                resolve();
+            }, 550); // Slightly longer than CSS transition
+        });
+    };
+    
+    /**
+     * Hide all menu-related overlays immediately (no animation)
+     * Called while transition overlay is masking the screen
+     */
+    const hideAllMenuOverlays = () => {
+        MobileDebug.add('Hiding all menu overlays...', 'info');
+        
+        // Hide save slot panel
+        if (funOverlay) {
+            funOverlay.style.display = 'none';
+            funOverlay.style.opacity = '0';
+            funOverlay.style.visibility = 'hidden';
+            funOverlay.setAttribute('aria-hidden', 'true');
+        }
+        
+        // Hide main menu overlay
+        if (mainMenuOverlay) {
+            mainMenuOverlay.style.display = 'none';
+            mainMenuOverlay.classList.add('hidden');
+            mainMenuOverlay.style.pointerEvents = 'none';
+        }
+        
+        // Hide any modal dialogs that might be open
+        const modalOverlay = document.getElementById('customModalOverlay');
+        if (modalOverlay) {
+            modalOverlay.style.display = 'none';
+            modalOverlay.classList.remove('active');
+        }
+        
+        MobileDebug.add('All menu overlays hidden', 'success');
+    };
+
+    // Legacy function for compatibility
     const runTransitionOverlay = () => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('funTransitionOverlay');
@@ -243,6 +377,16 @@
         mainMenuOverlay.classList.remove('hidden');
         mainMenuOverlay.style.display = 'flex';
         mainMenuOverlay.style.pointerEvents = 'auto';
+
+        // Always resume menu music whenever main menu becomes visible.
+        if (typeof window.playBackgroundMusic === 'function') {
+            try {
+                window.playBackgroundMusic();
+            } catch (e) {
+                MobileDebug.add(`Music resume error: ${e.message}`, 'warn');
+            }
+        }
+
         MobileDebug.add('Main menu shown', 'info');
     };
 
@@ -362,26 +506,76 @@
         MobileDebug.add('Slots rendered', 'success');
     };
 
-    const startFunModeFromSlot = (slot, slotData) => {
-        closeFunPanel();
-
-        runTransitionOverlay().then(() => {
-            hideElement('mainMenuOverlay');
-
+    const startFunModeFromSlot = async (slot, slotData) => {
+        MobileDebug.add(`=== LOADING GAME FROM SLOT ${slot} (Seamless Transition) ===`, 'event');
+        
+        try {
+            // ================================================================
+            // PHASE 1: IMMEDIATE VISUAL MASK
+            // ================================================================
+            MobileDebug.add('Phase 1: Showing transition mask...', 'info');
+            await showTransitionOverlay();
+            
+            // ================================================================
+            // PHASE 2: PARALLEL OPERATIONS (hidden behind mask)
+            // ================================================================
+            MobileDebug.add('Phase 2: Preparing game (masked)...', 'info');
+            
+            // Start music fade in parallel
+            const musicFadePromise = fadeOutMusic(800);
+            
+            // Hide all menu overlays (invisible to user - masked)
+            hideAllMenuOverlays();
+            
+            // Small delay to let DOM updates settle
+            await new Promise(r => setTimeout(r, 50));
+            
+            // ================================================================
+            // PHASE 3: INITIALIZE GAME (hidden behind mask)
+            // ================================================================
+            MobileDebug.add('Phase 3: Initializing game mode...', 'info');
+            
             if (window.game) {
                 window.game.startMode('beginner');
+                
+                await new Promise(r => setTimeout(r, 100));
+                
                 if (window.game.currentMode) {
                     window.game.currentMode.setActiveSaveSlot(slot);
                     if (slotData && slotData.appState) {
                         window.game.currentMode.loadSlot(slot);
+                        MobileDebug.add(`Slot ${slot} data loaded`, 'success');
                     } else {
                         window.game.currentMode.openBoxScore();
                     }
                 }
             } else {
-                MobileDebug.add('Game not found', 'error');
+                MobileDebug.add('Game not found!', 'error');
+                await hideTransitionOverlay();
+                showMainMenuOverlay();
+                return;
             }
-        });
+            
+            // Wait for level to render
+            await new Promise(r => setTimeout(r, 150));
+            
+            // Wait for music fade to complete
+            await musicFadePromise;
+            
+            // ================================================================
+            // PHASE 4: REVEAL GAME (fade out transition overlay)
+            // ================================================================
+            MobileDebug.add('Phase 4: Revealing game...', 'info');
+            await hideTransitionOverlay();
+            
+            MobileDebug.add(`=== SLOT ${slot} LOADED SUCCESSFULLY ===`, 'success');
+            
+        } catch (e) {
+            MobileDebug.add(`Load game error: ${e.message}`, 'error');
+            console.error('Load game error:', e);
+            await hideTransitionOverlay();
+            showMainMenuOverlay();
+        }
     };
 
     // ========================================================================
@@ -440,6 +634,16 @@
     const showTutorialSafely = async () => {
         MobileDebug.add('Showing tutorial...', 'event');
         
+        // ENSURE music is completely stopped before tutorial audio
+        // (It should already be faded by now, but double-check)
+        if (typeof window.isMusicPlaying === 'function' && window.isMusicPlaying()) {
+            MobileDebug.add('Music still playing, waiting for fade...', 'warn');
+            await fadeOutMusic(500); // Quick fade if somehow still playing
+        }
+        
+        // Small buffer to ensure audio system is clear
+        await new Promise(r => setTimeout(r, 60));
+        
         // Wait for tutorial to be available
         let attempts = 0;
         while (!window.tutorial && attempts < 30) {
@@ -461,6 +665,7 @@
         }
         
         try {
+            MobileDebug.add('Launching tutorial (music should be silent)', 'info');
             window.tutorial.show();
             
             await new Promise(r => setTimeout(r, 100));
@@ -469,7 +674,7 @@
                 tutOverlay.style.display = 'flex';
                 tutOverlay.style.visibility = 'visible';
                 tutOverlay.style.opacity = '1';
-                MobileDebug.add('Tutorial shown', 'success');
+                MobileDebug.add('Tutorial shown, audio should play cleanly', 'success');
                 return true;
             }
             return false;
@@ -480,50 +685,105 @@
     };
     
     const startNewGame = async (status) => {
-        MobileDebug.add('Starting new game...', 'event');
+        MobileDebug.add('=== STARTING NEW GAME (Seamless Transition) ===', 'event');
         
         try {
+            // Prevent game.js fallback from launching tutorial a second time
+            window.__suppressGameTutorialFallback = true;
+
+            // ================================================================
+            // PHASE 1: IMMEDIATE VISUAL MASK
+            // Show transition overlay FIRST to hide all subsequent changes
+            // ================================================================
+            MobileDebug.add('Phase 1: Showing transition mask...', 'info');
+            await showTransitionOverlay();
+            
+            // ================================================================
+            // PHASE 2: PARALLEL OPERATIONS (hidden behind mask)
+            // Do all the "messy" work while user sees the beautiful transition
+            // ================================================================
+            MobileDebug.add('Phase 2: Preparing game (masked)...', 'info');
+            
+            // Start music fade in parallel (don't await - let it happen while we work)
+            const musicFadePromise = fadeOutMusic(800);
+            
             // Clear save data
             localStorage.setItem('polygonFunActiveSlot', `${status.activeSlot}`);
             localStorage.removeItem(`polygonFunSaveSlot${status.activeSlot}`);
             localStorage.removeItem(`polygonFunStarsSlot${status.activeSlot}`);
             localStorage.removeItem('tutorial_seen');
             
-            closeFunPanel();
-            await runTransitionOverlay();
-            hideElement('mainMenuOverlay');
+            // Hide all menu overlays (invisible to user - masked)
+            hideAllMenuOverlays();
+            
+            // Small delay to let DOM updates settle
+            await new Promise(r => setTimeout(r, 50));
+            
+            // ================================================================
+            // PHASE 3: INITIALIZE GAME (hidden behind mask)
+            // ================================================================
+            MobileDebug.add('Phase 3: Initializing game mode...', 'info');
             
             // Wait for game to be available
             if (!window.game) {
-                MobileDebug.add('Waiting for game...', 'warn');
-                await new Promise(r => setTimeout(r, 500));
+                MobileDebug.add('Waiting for game object...', 'warn');
+                await new Promise(r => setTimeout(r, 300));
                 
                 if (!window.game) {
-                    MobileDebug.add('Game not available', 'error');
-                    alert('Game is still loading. Please try again.');
+                    MobileDebug.add('Game not available!', 'error');
+                    await hideTransitionOverlay();
                     showMainMenuOverlay();
+                    alert('Game is still loading. Please try again.');
                     return;
                 }
             }
             
-            MobileDebug.add('Starting beginner mode', 'info');
+            // Start game mode (this changes UI but is hidden by mask)
             window.game.startMode('beginner');
             
-            await new Promise(r => setTimeout(r, 100));
+            // Wait a frame for game UI to initialize
+            await new Promise(r => setTimeout(r, 70));
             
+            // Load level 0
             if (window.game.currentMode) {
                 window.game.currentMode.setActiveSaveSlot(status.activeSlot);
                 window.game.currentMode.loadLevel(0);
-                MobileDebug.add('Level loaded', 'success');
+                MobileDebug.add('Level 0 loaded', 'success');
             }
             
-            await new Promise(r => setTimeout(r, 300));
+            // Wait for level to render
+            await new Promise(r => setTimeout(r, 90));
+            
+            // Wait for music fade to complete
+            await musicFadePromise;
+            
+            // ================================================================
+            // PHASE 4: REVEAL GAME (fade out transition overlay)
+            // ================================================================
+            MobileDebug.add('Phase 4: Revealing game...', 'info');
+            await hideTransitionOverlay();
+            
+            // ================================================================
+            // PHASE 5: SHOW TUTORIAL (after reveal, with slight delay)
+            // ================================================================
+            MobileDebug.add('Phase 5: Showing tutorial...', 'info');
+            
+            // Tiny breathing room only (avoid visible lag)
+            await new Promise(r => setTimeout(r, 60));
+            
             await showTutorialSafely();
+            
+            MobileDebug.add('=== NEW GAME STARTED SUCCESSFULLY ===', 'success');
             
         } catch (e) {
             MobileDebug.add(`startNewGame error: ${e.message}`, 'error');
             console.error('startNewGame error:', e);
+            
+            // Ensure we clean up on error
+            await hideTransitionOverlay();
             showMainMenuOverlay();
+        } finally {
+            window.__suppressGameTutorialFallback = false;
         }
     };
 
@@ -548,8 +808,13 @@
         const funBtn = document.getElementById('btnFunMode');
         if (funBtn) {
             addClickHandler(funBtn, () => {
+                const cooldownUntil = Number(window.__mainMenuReturnCooldownUntil || 0);
+                if (Date.now() < cooldownUntil) {
+                    MobileDebug.add('Play Game tap ignored during return cooldown', 'warn');
+                    return;
+                }
                 MobileDebug.add('Play Game pressed', 'event');
-                stopMusic();
+                // Don't fade music here - wait until user confirms action
                 openFunPanel();
             });
             MobileDebug.add('btnFunMode attached', 'success');

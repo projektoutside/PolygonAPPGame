@@ -40,10 +40,22 @@ class Game {
         this.state = GameState.MENU;
         this.currentMode = null;
         this.toggleUI(false);
+        // Guard against accidental tap/click-through immediately after closing overlays.
+        window.__mainMenuReturnCooldownUntil = Date.now() + 900;
         if (this.app) {
             this.app.gridSnap = true;
         }
         if (MainMenu) MainMenu.show();
+
+        // Ensure any tutorial overlay is fully dismissed when returning to main menu.
+        if (window.tutorial && typeof window.tutorial.reset === 'function') {
+            try {
+                window.tutorial.reset();
+            } catch (e) {
+                console.warn('Failed to reset tutorial on game stop:', e);
+            }
+        }
+        window.__allowTutorialToStartGame = false;
 
         // Remove HUD
         const hud = document.getElementById('gameHUD');
@@ -65,6 +77,12 @@ class Game {
         if (saveLoad) {
             saveLoad.style.display = 'none';
             saveLoad.setAttribute('aria-hidden', 'true');
+        }
+
+        const options = document.getElementById('gameOptionsOverlay');
+        if (options) {
+            options.style.display = 'none';
+            options.setAttribute('aria-hidden', 'true');
         }
 
         // Hide Dev Panel if open
@@ -145,13 +163,16 @@ class BeginnerMode {
         this.modeType = 'fun';
         this.levelFailCount = 0; // Safety Feature: Track frustration
         this.audioCtx = null;
-        this.gridFreeMode = false;
+        // Default to free precision controls (no snap) for smoother first-drag experience.
+        this.gridFreeMode = true;
         this.gridToggleBound = false;
+        this.optionsMenuReady = false;
         this.saveSlotCount = 3;
         this.activeSaveSlot = 1;
         this.starRatings = [];
         this.boxScoreReady = false;
         this.didAutoResume = false;
+        this.autosaveTimer = null;
     }
 
     start() {
@@ -169,12 +190,14 @@ class BeginnerMode {
         // 1. We're NOT resuming a saved game
         // 2. tutorial_seen flag is not set
         // 3. window.tutorial exists
-        if (!resumed && window.tutorial && !localStorage.getItem('tutorial_seen')) {
+        // 4. no explicit suppression flag is set by the caller (used by menu transition flow)
+        if (!resumed && window.tutorial && !localStorage.getItem('tutorial_seen') && !window.__suppressGameTutorialFallback) {
             console.log('[BeginnerMode] Showing tutorial for new user (from game.js fallback)');
             // Use a longer delay to ensure DOM is ready on mobile
             setTimeout(() => {
                 try {
                     if (window.tutorial && typeof window.tutorial.show === 'function') {
+                        window.__allowTutorialToStartGame = true;
                         window.tutorial.show();
                         console.log('[BeginnerMode] Tutorial.show() called successfully');
                     }
@@ -182,7 +205,6 @@ class BeginnerMode {
                     console.error('[BeginnerMode] Tutorial show failed:', e);
                 }
             }, 250);
-            localStorage.setItem('tutorial_seen', 'true');
         }
     }
 
@@ -608,7 +630,16 @@ class BeginnerMode {
         if (this.starRatings.length === 0) {
             this.starRatings = this.getSlotStars(this.activeSaveSlot);
         }
-        this.autoSaveSlot(this.activeSaveSlot);
+
+        // Debounce localStorage writes to reduce micro-stutter during rapid actions.
+        if (this.autosaveTimer) {
+            clearTimeout(this.autosaveTimer);
+        }
+        this.autosaveTimer = setTimeout(() => {
+            this.autosaveTimer = null;
+            if (!this.isFunModeActive()) return;
+            this.autoSaveSlot(this.activeSaveSlot);
+        }, 120);
     }
 
     getSolutionKey(slot) {
@@ -779,6 +810,104 @@ class BeginnerMode {
                 if (e.target === overlay) this.closeSaveLoadPanel();
             };
         }
+    }
+
+    setupOptionsMenuUI() {
+        if (this.optionsMenuReady) return;
+
+        let overlay = document.getElementById('gameOptionsOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'gameOptionsOverlay';
+            overlay.className = 'overlay';
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.style.cssText = `
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(15, 23, 42, 0.75);
+                backdrop-filter: blur(6px);
+                z-index: 9998;
+                justify-content: center;
+                align-items: center;
+            `;
+
+            overlay.innerHTML = `
+                <div style="background: white; border-radius: 20px; width: min(92vw, 360px); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); overflow: hidden;">
+                    <div style="padding: 18px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                        <h3 style="margin: 0; font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 700; color: #0f172a;">Options</h3>
+                        <button id="gameOptionsClose" style="background: none; border: none; color: #64748b; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+                    </div>
+                    <div style="padding: 16px; display: grid; gap: 10px;">
+                        <button id="gameOptionsMenuBtn" style="padding: 12px 14px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; color: #0f172a; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; text-align: left;">🏠 Menu</button>
+                        <button id="gameOptionsSaveLoadBtn" style="padding: 12px 14px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; color: #0f172a; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; text-align: left;">💾 Save / Load</button>
+                        <button id="gameOptionsSettingsBtn" style="padding: 12px 14px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; color: #0f172a; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; text-align: left;">⚙️ Settings</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+        }
+
+        const closeBtn = document.getElementById('gameOptionsClose');
+        const menuBtn = document.getElementById('gameOptionsMenuBtn');
+        const saveLoadBtn = document.getElementById('gameOptionsSaveLoadBtn');
+        const settingsBtn = document.getElementById('gameOptionsSettingsBtn');
+
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeOptionsMenu();
+        }
+
+        if (overlay) {
+            overlay.onclick = (event) => {
+                if (event.target === overlay) {
+                    this.closeOptionsMenu();
+                }
+            };
+        }
+
+        if (menuBtn) {
+            menuBtn.onclick = async () => {
+                this.closeOptionsMenu();
+                if (await window.appConfirm('Return to Main Menu? Progress will be lost.', { title: 'Exit Game', confirmText: 'Exit' })) {
+                    this.game.stop();
+                }
+            };
+        }
+
+        if (saveLoadBtn) {
+            saveLoadBtn.onclick = () => {
+                this.closeOptionsMenu();
+                this.openSaveLoadPanel();
+            };
+        }
+
+        if (settingsBtn) {
+            settingsBtn.onclick = () => {
+                this.closeOptionsMenu();
+                window.appAlert('Settings menu coming soon!', { title: 'Settings' });
+            };
+        }
+
+        this.optionsMenuReady = true;
+    }
+
+    openOptionsMenu() {
+        this.setupOptionsMenuUI();
+        const overlay = document.getElementById('gameOptionsOverlay');
+        if (!overlay) return;
+        overlay.style.display = 'flex';
+        overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    closeOptionsMenu() {
+        const overlay = document.getElementById('gameOptionsOverlay');
+        if (!overlay) return;
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
     }
 
     openSaveLoadPanel() {
@@ -1022,12 +1151,17 @@ class BeginnerMode {
         const level = this.game.levels[index];
         if (!level) return;
 
+        const isCurrentLevel = index === this.currentLevelIndex;
+        const levelStars = (Array.isArray(this.starRatings) ? (this.starRatings[index] || 0) : 0);
+        const isLevelSolved = levelStars > 0;
+
         // Check for saved solution
         const savedSolution = this.getLevelSolution(this.activeSaveSlot, index);
-        const isSolved = savedSolution && savedSolution.pieces && savedSolution.pieces.length > 0;
+        const hasSavedSolution = savedSolution && savedSolution.pieces && savedSolution.pieces.length > 0;
+        const shouldShowSolvedPreview = !!(hasSavedSolution && isLevelSolved);
 
-        titleEl.textContent = isSolved
-            ? `Level ${index + 1} Result`
+        titleEl.textContent = shouldShowSolvedPreview
+            ? `Level ${index + 1} Last Success`
             : `Level ${index + 1} Preview`;
 
         const ctx = canvas.getContext('2d');
@@ -1041,6 +1175,27 @@ class BeginnerMode {
         }
 
         ctx.clearRect(0, 0, width, height);
+
+        // IMPORTANT: In Select Level, only show the player's saved last-success image.
+        // Do NOT show level preview / target shape when no saved success exists.
+        if (!shouldShowSolvedPreview) {
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, width, height);
+
+            // Keep current unsolved level blank (do not reveal target/correct answer).
+            if (isCurrentLevel && !isLevelSolved) {
+                return;
+            }
+
+            ctx.fillStyle = '#64748b';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '600 14px "Inter", sans-serif';
+            ctx.fillText('No saved success image yet', width / 2, height / 2 - 10);
+            ctx.font = '500 12px "Inter", sans-serif';
+            ctx.fillText('Complete this level to store your result', width / 2, height / 2 + 14);
+            return;
+        }
 
         // Draw Grid Background
         ctx.strokeStyle = '#e2e8f0';
@@ -1060,7 +1215,7 @@ class BeginnerMode {
         let verticesCollection = [];
         let labels = [];
 
-        if (isSolved) {
+        if (shouldShowSolvedPreview) {
             const storedPercents = Array.isArray(savedSolution.percents) ? savedSolution.percents : [];
             let fallbackPercents = [];
             if (!storedPercents.length || storedPercents.length !== savedSolution.pieces.length) {
@@ -1085,12 +1240,6 @@ class BeginnerMode {
                         vertices: p.vertices
                     });
                 }
-            });
-        } else {
-            // Fallback to start shape
-            verticesCollection.push({
-                vertices: level.startShapeVertices,
-                color: level.color || '#60a5fa'
             });
         }
 
@@ -1523,34 +1672,14 @@ class BeginnerMode {
 
             const btnClass = 'game-hud-btn';
 
-            // Main Menu Button
-            const menuBtn = document.createElement('button');
-            menuBtn.innerHTML = '<span style="font-size: 16px;">🏠</span> Main Menu';
-            menuBtn.className = btnClass;
-            menuBtn.onclick = async () => {
-                if (await window.appConfirm('Return to Main Menu? Progress will be lost.', { title: 'Exit Game', confirmText: 'Exit' })) {
-                    this.game.stop();
-                }
+            // Options Button (replaces Main Menu + Save/Load + Settings)
+            const optionsBtn = document.createElement('button');
+            optionsBtn.innerHTML = '<span style="font-size: 16px;">☰</span> Options';
+            optionsBtn.className = btnClass;
+            optionsBtn.onclick = () => {
+                this.openOptionsMenu();
             };
-            buttonRow.appendChild(menuBtn);
-
-            // Save/Load Button (New)
-            const saveLoadBtn = document.createElement('button');
-            saveLoadBtn.innerHTML = '<span style="font-size: 16px;">💾</span> Save/Load';
-            saveLoadBtn.className = btnClass;
-            saveLoadBtn.onclick = () => {
-                this.openSaveLoadPanel();
-            };
-            buttonRow.appendChild(saveLoadBtn);
-
-            // Settings Button
-            const settingsBtn = document.createElement('button');
-            settingsBtn.innerHTML = '<span style="font-size: 16px;">⚙️</span> Settings';
-            settingsBtn.className = btnClass;
-            settingsBtn.onclick = () => {
-                window.appAlert('Settings menu coming soon!', { title: 'Settings' });
-            };
-            buttonRow.appendChild(settingsBtn);
+            buttonRow.appendChild(optionsBtn);
 
 
 
@@ -1598,7 +1727,8 @@ class BeginnerMode {
             `;
 
             const gridLockText = document.createElement('span');
-            gridLockText.textContent = 'Lock Grid (free click)';
+            gridLockText.id = 'gameGridLockText';
+            gridLockText.textContent = 'Open Grid';
 
             gridLockWrapper.appendChild(gridLockCheckbox);
             gridLockWrapper.appendChild(gridLockText);
@@ -1660,10 +1790,18 @@ class BeginnerMode {
 
         const gridToggle = document.getElementById('gameGridLockToggle');
         if (gridToggle) {
-            gridToggle.checked = this.gridFreeMode;
+            gridToggle.checked = !this.gridFreeMode;
         }
 
+        this.updateGridLockLabel();
+
         this.bindGridLockToggle();
+    }
+
+    updateGridLockLabel() {
+        const gridLockText = document.getElementById('gameGridLockText');
+        if (!gridLockText) return;
+        gridLockText.textContent = this.gridFreeMode ? 'Grid Snap: Off' : 'Grid Snap: On';
     }
 
     bindGridLockToggle() {
@@ -1671,11 +1809,13 @@ class BeginnerMode {
         const gridToggle = document.getElementById('gameGridLockToggle');
         if (!gridToggle) return;
 
-        gridToggle.checked = this.gridFreeMode;
+        gridToggle.checked = !this.gridFreeMode;
         gridToggle.addEventListener('change', () => {
-            this.gridFreeMode = gridToggle.checked;
+            this.gridFreeMode = !gridToggle.checked;
             this.app.gridSnap = !this.gridFreeMode;
+            this.updateGridLockLabel();
         });
+        this.updateGridLockLabel();
         this.gridToggleBound = true;
     }
 

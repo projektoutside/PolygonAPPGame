@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'polygon-fun-v11-clean';
+const CACHE_VERSION = 'polygon-fun-v12-tutorial-audio-fix';
 const OFFLINE_ASSETS = [
   './',
   './index.html',

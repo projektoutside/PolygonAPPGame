@@ -13,6 +13,14 @@ class NeonBackground {
         this.shapes = [];
         this.particles = [];
         this.effects = []; // For slash lines
+        this.logicalWidth = window.innerWidth;
+        this.logicalHeight = window.innerHeight;
+        this.lastFrameTime = 0;
+        this.frameInterval = 1000 / 30; // Cap animation cost to ~30 FPS
+        this.hiddenFrameInterval = 1000 / 8; // Lower cost when canvas is hidden
+        this.cachedGradient = null;
+        this.cachedGradientWidth = 0;
+        this.cachedGradientHeight = 0;
 
         // Configuration
         this.targetShapeCount = 15;
@@ -62,30 +70,32 @@ class NeonBackground {
 
         if (spawnOffScreen) {
             // Spawn just outside the visible area
+            const width = this.logicalWidth || window.innerWidth;
+            const height = this.logicalHeight || window.innerHeight;
             const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
             const buffer = 150;
             switch (side) {
                 case 0: // Top
-                    x = Math.random() * window.innerWidth;
+                    x = Math.random() * width;
                     y = -buffer;
                     break;
                 case 1: // Right
-                    x = window.innerWidth + buffer;
-                    y = Math.random() * window.innerHeight;
+                    x = width + buffer;
+                    y = Math.random() * height;
                     break;
                 case 2: // Bottom
-                    x = Math.random() * window.innerWidth;
-                    y = window.innerHeight + buffer;
+                    x = Math.random() * width;
+                    y = height + buffer;
                     break;
                 case 3: // Left
                     x = -buffer;
-                    y = Math.random() * window.innerHeight;
+                    y = Math.random() * height;
                     break;
             }
         } else {
             // Init random position on screen
-            x = Math.random() * window.innerWidth;
-            y = Math.random() * window.innerHeight;
+            x = Math.random() * (this.logicalWidth || window.innerWidth);
+            y = Math.random() * (this.logicalHeight || window.innerHeight);
         }
 
         const targetOpacity = isBackground ? Math.random() * 0.2 + 0.1 : Math.random() * 0.5 + 0.5;
@@ -114,8 +124,8 @@ class NeonBackground {
 
     createParticle() {
         return {
-            x: Math.random() * window.innerWidth,
-            y: Math.random() * window.innerHeight,
+            x: Math.random() * (this.logicalWidth || window.innerWidth),
+            y: Math.random() * (this.logicalHeight || window.innerHeight),
             size: Math.random() * 2 + 0.5,
             alpha: Math.random(),
             fading: Math.random() < 0.5,
@@ -126,11 +136,22 @@ class NeonBackground {
 
     resize() {
         const dpr = window.devicePixelRatio || 1;
-        this.canvas.width = window.innerWidth * dpr;
-        this.canvas.height = window.innerHeight * dpr;
-        this.canvas.style.width = `${window.innerWidth}px`;
-        this.canvas.style.height = `${window.innerHeight}px`;
+        this.logicalWidth = window.innerWidth;
+        this.logicalHeight = window.innerHeight;
+
+        this.canvas.width = this.logicalWidth * dpr;
+        this.canvas.height = this.logicalHeight * dpr;
+        this.canvas.style.width = `${this.logicalWidth}px`;
+        this.canvas.style.height = `${this.logicalHeight}px`;
+
+        // Reset transform before scaling to avoid cumulative scale growth on resize.
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.scale(dpr, dpr);
+
+        // Invalidate cached gradient after size changes.
+        this.cachedGradient = null;
+        this.cachedGradientWidth = 0;
+        this.cachedGradientHeight = 0;
     }
 
     // --- GEOMETRY HELPERS ---
@@ -199,11 +220,13 @@ class NeonBackground {
     }
 
     triggerRandomSplit(time) {
+        const width = this.logicalWidth || window.innerWidth;
+        const height = this.logicalHeight || window.innerHeight;
         // Filter candidates: Regular shapes, Visible, On Screen
         const candidates = this.shapes.filter(s =>
             s.type === 'regular' &&
-            s.x > 0 && s.x < window.innerWidth &&
-            s.y > 0 && s.y < window.innerHeight &&
+            s.x > 0 && s.x < width &&
+            s.y > 0 && s.y < height &&
             s.opacity > 0.3 &&
             !s.fadeIn // Don't split things that are just fading in
         );
@@ -299,6 +322,14 @@ class NeonBackground {
     }
 
     animate(time) {
+        const isCanvasHidden = this.canvas.offsetParent === null || this.canvas.clientWidth === 0 || this.canvas.clientHeight === 0;
+        const targetInterval = isCanvasHidden ? this.hiddenFrameInterval : this.frameInterval;
+        if (time - this.lastFrameTime < targetInterval) {
+            requestAnimationFrame(this.animate);
+            return;
+        }
+        this.lastFrameTime = time;
+
         // --- Logic ---
         // Check for split
         if (time - this.lastSplitTime > this.splitInterval) {
@@ -306,14 +337,21 @@ class NeonBackground {
         }
 
         // --- Rendering ---
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const width = this.logicalWidth || window.innerWidth;
+        const height = this.logicalHeight || window.innerHeight;
+        this.ctx.clearRect(0, 0, width, height);
 
         // Deep blue/purple gradient background
-        const gradient = this.ctx.createLinearGradient(0, 0, this.canvas.width, this.canvas.height);
-        gradient.addColorStop(0, '#0f172a');
-        gradient.addColorStop(1, '#1e1b4b');
-        this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        if (!this.cachedGradient || this.cachedGradientWidth !== width || this.cachedGradientHeight !== height) {
+            const gradient = this.ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, '#0f172a');
+            gradient.addColorStop(1, '#1e1b4b');
+            this.cachedGradient = gradient;
+            this.cachedGradientWidth = width;
+            this.cachedGradientHeight = height;
+        }
+        this.ctx.fillStyle = this.cachedGradient;
+        this.ctx.fillRect(0, 0, width, height);
 
         // 0. Effects (Slash lines)
         for (let i = this.effects.length - 1; i >= 0; i--) {
@@ -342,10 +380,10 @@ class NeonBackground {
             p.y += p.vy;
 
             // Wall wrapping for particles
-            if (p.x < 0) p.x = this.canvas.width;
-            if (p.x > this.canvas.width) p.x = 0;
-            if (p.y < 0) p.y = this.canvas.height;
-            if (p.y > this.canvas.height) p.y = 0;
+            if (p.x < 0) p.x = width;
+            if (p.x > width) p.x = 0;
+            if (p.y < 0) p.y = height;
+            if (p.y > height) p.y = 0;
 
             // Optional explicit life for burst particles
             if (p.life) {
@@ -407,10 +445,10 @@ class NeonBackground {
 
                 // Wrap regular shapes
                 const buffer = 150;
-                if (s.x < -buffer) s.x = this.canvas.width + buffer;
-                if (s.x > this.canvas.width + buffer) s.x = -buffer;
-                if (s.y < -buffer) s.y = this.canvas.height + buffer;
-                if (s.y > this.canvas.height + buffer) s.y = -buffer;
+                if (s.x < -buffer) s.x = width + buffer;
+                if (s.x > width + buffer) s.x = -buffer;
+                if (s.y < -buffer) s.y = height + buffer;
+                if (s.y > height + buffer) s.y = -buffer;
             }
 
             // Draw
